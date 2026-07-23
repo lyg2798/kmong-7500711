@@ -2,7 +2,7 @@
 
 Canva로 제작된 모바일 청첩장을 정적 사이트로 미러링해 GitHub Pages로 서비스합니다.
 
-- **라이브**: https://lyg2798.github.io/wedding-invitation/
+- **라이브**: https://lyg2798.github.io/kmong-7500711/
 - 페이지: `/`(커버) → `/main-page`(본문) → `/address-collection`(참석여부)
 
 ## 구조
@@ -16,7 +16,7 @@ Canva로 제작된 모바일 청첩장을 정적 사이트로 미러링해 GitHu
 
 ## 원본 대비 수정 사항 (HTML 3개 문서만, 자산은 무수정)
 
-1. `<base href="/wedding-invitation/">` — 서브패스 배포에서 자산 로딩·SPA 라우팅이 동작하기 위한 필수 수정
+1. `<base href="/kmong-7500711/">` — 서브패스 배포에서 자산 로딩·SPA 라우팅이 동작하기 위한 필수 수정
 2. `og:image` URL을 이 도메인으로 교체 (카카오톡 등 공유 미리보기)
 3. 문서 끝 폴백 스크립트 — 참석여부(RSVP) 폼 위젯은 Canva 백엔드가 자기 도메인 외 임베드를 CSP로 차단하므로, 위젯 iframe을 무력화(`about:blank` + 숨김)하고 같은 자리에 "참석여부 입력하기" 패널(원본 Canva 사이트의 참석여부 페이지를 새 창으로 엶)을 표시. 응답은 기존처럼 Canva 응답함에 수집됨.
 
