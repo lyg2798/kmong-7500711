@@ -10,8 +10,8 @@
  * Two independent problems, fixed in order:
  *   1. Multi-line blocks are left-aligned within a shared box, so shorter
  *      lines read as visibly off-center even once the box itself is
- *      centered. Fixed with text-align:center per <p> line (see align.css)
- *      -- applied first, since it changes where the ink sits.
+ *      centered. Fixed with an explicit text-align per <p> line (see
+ *      align.css) -- applied first, since it changes where the ink sits.
  *   2. The row-group's own translateX doesn't put that ink at the section
  *      canvas's center. The row-group's *own* bounding box is not a
  *      reliable stand-in for where the glyphs actually render (one target
@@ -31,7 +31,17 @@
   // '참석이 어려우신...' is deliberately absent: it shares a row with the
   // photo on the right, so centering it on the canvas slides it under the
   // photo. It is already centered within its own column.
-  var TARGET_PREFIXES = ['마음 전하실 곳', '코스요리가', '지하철'];
+  //
+  // `align` is how the lines sit relative to each other; the row-group as a
+  // whole is centered on the canvas either way. So the transit/parking block
+  // reads as a flush-left list whose longest line stays where a centered
+  // block would put it -- rather than starting at the left edge of the
+  // 707px-wide box Canva gives it, which begins off-screen.
+  var TARGETS = [
+    { prefix: '마음 전하실 곳', align: 'center' },
+    { prefix: '코스요리가', align: 'center' },
+    { prefix: '지하철', align: 'left' }
+  ];
   // below this, the ink is already close enough to center that re-writing
   // the transform would just be floating-point noise -- treat as settled.
   var MIN_DELTA = 0.5;
@@ -43,9 +53,9 @@
       Array.prototype.forEach.call(canvas.children, function (child) {
         if (child.classList && child.classList.contains('cg-root')) return;
         var text = (child.innerText || child.textContent || '').trim();
-        for (var i = 0; i < TARGET_PREFIXES.length; i++) {
-          if (text.indexOf(TARGET_PREFIXES[i]) === 0) {
-            found.push({ el: child, canvas: canvas });
+        for (var i = 0; i < TARGETS.length; i++) {
+          if (text.indexOf(TARGETS[i].prefix) === 0) {
+            found.push({ el: child, canvas: canvas, align: TARGETS[i].align });
             break;
           }
         }
@@ -89,11 +99,11 @@
     return (minX + maxX) / 2;
   }
 
-  function ensureLineCentered(rowGroup) {
+  function ensureLineAligned(rowGroup, align) {
     var ps = rowGroup.querySelectorAll('p');
     for (var i = 0; i < ps.length; i++) {
-      if (!ps[i].hasAttribute('data-cg-align-line')) {
-        ps[i].setAttribute('data-cg-align-line', '');
+      if (ps[i].getAttribute('data-cg-align-line') !== align) {
+        ps[i].setAttribute('data-cg-align-line', align);
       }
     }
     return ps.length > 0;
@@ -103,10 +113,10 @@
   // skip straight past targets that are already correctly positioned,
   // instead of re-measuring ink (which forces layout) on every unrelated
   // mutation elsewhere on the page.
-  function isSettled(rowGroup) {
+  function isSettled(rowGroup, align) {
     var ps = rowGroup.querySelectorAll('p');
     for (var i = 0; i < ps.length; i++) {
-      if (!ps[i].hasAttribute('data-cg-align-line')) return false;
+      if (ps[i].getAttribute('data-cg-align-line') !== align) return false;
     }
     var marker = rowGroup.getAttribute('data-cg-align-tx');
     return marker !== null && rowGroup.style.transform === marker;
@@ -114,9 +124,9 @@
 
   function processTarget(entry) {
     var rowGroup = entry.el;
-    if (isSettled(rowGroup)) return;
+    if (isSettled(rowGroup, entry.align)) return;
 
-    var hadLines = ensureLineCentered(rowGroup);
+    var hadLines = ensureLineAligned(rowGroup, entry.align);
     if (!hadLines) return;
 
     var inkCx = measureInkCenterX(rowGroup);

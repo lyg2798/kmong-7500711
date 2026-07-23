@@ -1,5 +1,5 @@
 /*
- * Line-level centering for the text blocks align.js corrects. Kept as a
+ * Line-level alignment for the text blocks align.js corrects. Kept as a
  * separate stylesheet rather than inline styles so the styling decision
  * lives in CSS, not JS strings.
  *
@@ -7,9 +7,15 @@
  * already carry an explicit text-align:left from Canva's own generated
  * class (confirmed live -- setting text-align on an ancestor and relying on
  * inheritance does not reach them, only overriding the property directly
- * on the <p> wins). Marked via a data attribute so align.js can tell which
- * lines it has already claimed without re-touching Canva's own classes.
+ * on the <p> wins). The data attribute carries the mode so align.js can tell
+ * which lines it has already claimed, and in which alignment, without
+ * re-touching Canva's own classes. `left` restates what Canva's class already
+ * says, so that it still wins if a block is switched back from `center`.
  */
-[data-cg-align-line] {
+[data-cg-align-line='center'] {
   text-align: center !important;
+}
+
+[data-cg-align-line='left'] {
+  text-align: left !important;
 }
