@@ -96,8 +96,28 @@
     return null;
   }
 
-  function findSizer(section) {
-    return section.getElementsByClassName('_8jGYJw')[0] || null;
+  // Canva stamps the section height onto several nested wrappers, not one.
+  // Shrinking only the outermost leaves the inner ones at their original
+  // height, and one of them centers its children vertically -- which lifts
+  // the gallery content out of the section box and over the section above.
+  // So every wrapper carrying an inline height gets the new value. Membership
+  // is by "has an inline height", not by class name, so it still holds if
+  // Canva's wrapper nesting differs.
+  function findSizerLayers(section) {
+    var outer = section.getElementsByClassName('_8jGYJw')[0];
+    if (!outer) return [];
+    var canvas = findCanvas(section);
+    if (!canvas || !outer.contains(canvas)) {
+      return outer.style.height ? [outer] : [];
+    }
+    var layers = [];
+    var el = canvas;
+    while (el) {
+      if (el.style && el.style.height) layers.push(el);
+      if (el === outer) break;
+      el = el.parentElement;
+    }
+    return layers;
   }
 
   // row-groups = direct children of the canvas that contain at least one of
@@ -407,11 +427,13 @@
 
     var totalHeight = Math.round(refs.lastTopY + containerHeight + BOTTOM_MARGIN);
     var newHeightStr = totalHeight + 'px';
-    var sizer = findSizer(section);
-    if (sizer && sizer.style.height !== newHeightStr) {
-      sizer.style.height = newHeightStr;
-      refs.lastSizerHeight = newHeightStr;
+    var layers = findSizerLayers(section);
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].style.height !== newHeightStr) {
+        layers[i].style.height = newHeightStr;
+      }
     }
+    if (layers.length) refs.lastSizerHeight = newHeightStr;
   }
 
   function positionContainerAndSizer(section, canvas, rowGroups) {
@@ -446,8 +468,15 @@
       if (rowGroups[i].style.display !== 'none') { needsHide = true; break; }
     }
 
-    var sizer = findSizer(section);
-    var sizerDrifted = !!(sizer && refs.lastSizerHeight && sizer.style.height !== refs.lastSizerHeight);
+    // a resize makes Canva rewrite these wrappers' style attributes wholesale,
+    // so any one of them reverting is enough to trigger a full re-apply.
+    var sizerDrifted = false;
+    if (refs.lastSizerHeight) {
+      var layers = findSizerLayers(section);
+      for (var s = 0; s < layers.length; s++) {
+        if (layers[s].style.height !== refs.lastSizerHeight) { sizerDrifted = true; break; }
+      }
+    }
 
     if (!containerExists || needsHide || sizerDrifted) {
       if (needsHide || !containerExists) {
