@@ -35,7 +35,8 @@
  *     left column, which is the design's intent -- but align.js centres the
  *     heading here, which left the divider stranded on its own. Centring the
  *     divider is what puts the pair back in step, and clearBelow() then makes
- *     the room that needs.
+ *     the room that needs -- and, on request, rather more of it than the
+ *     design left there.
  *
  * Canva rewrites these inline styles wholesale on viewport resize (the same
  * behaviour gallery.js, align.js and invitation.js contend with), so every
@@ -70,6 +71,16 @@
   // every viewport, since gap and heading scale together; twice that is room
   // to spare and still stops the search well short of the section's body
   var NEAR = 2;
+  // How much air the divider gets underneath it once the body has been moved
+  // clear, as a multiple of the gap the design already leaves above it. One
+  // would simply balance the two; the client asked twice for visibly more than
+  // that under 마음 전하실 곳, so this overshoots deliberately. It is a ratio
+  // rather than a pixel count because the gap above scales with the viewport
+  // -- 18.4px at 390 wide, 18.9 at 430, 21.3 at 768 -- and a fixed number
+  // would read differently on each phone. 2.6 lands the body 48-56px below the
+  // ornament across that range while leaving the section the bottom margin the
+  // design gives it.
+  var ROOM_BELOW = 2.6;
   // compare the numbers we wrote, not the strings: the browser re-serialises
   // `transform` and `height`, so a string comparison reports "not mine" on a
   // value this just set -- which is how the same kind of shift in
@@ -417,13 +428,23 @@
     var bodyTop = Infinity;
     for (i = 0; i < body.length; i++) {
       if (body[i].top < bodyTop) bodyTop = body[i].top;
+      // Sharing the divider's row counts well before the two actually touch.
+      // At 768 wide the centred divider clears the portrait by 3.6px: no
+      // overlap, so a strict test does nothing, and the ornament ends up
+      // wedged in the gutter beside the photo instead of sitting under the
+      // heading -- confirmed on a screenshot. Requiring the same clearance
+      // sideways as the design leaves above the divider is what makes 390 and
+      // 768 come out alike. It costs the other five sections nothing: the band
+      // being tested is only the divider's own 3px height, and nothing in
+      // those sections starts inside it.
       if (body[i].top < dr.bottom &&
-          body[i].left < dr.right && body[i].right > dr.left) collides = true;
+          body[i].left < dr.right + gapAbove &&
+          body[i].right > dr.left - gapAbove) collides = true;
     }
     // the other five dividers have their row to themselves; leave them be
     if (!collides) return;
 
-    var offset = (dr.bottom + gapAbove) - bodyTop;
+    var offset = (dr.bottom + gapAbove * ROOM_BELOW) - bodyTop;
     if (offset < MIN_DELTA) return;
     for (i = 0; i < body.length; i++) offsetY(body[i].el, offset);
     grow(canvas, section, offset);
