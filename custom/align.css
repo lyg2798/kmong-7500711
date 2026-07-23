@@ -1,0 +1,15 @@
+/*
+ * Line-level centering for the text blocks align.js corrects. Kept as a
+ * separate stylesheet rather than inline styles so the styling decision
+ * lives in CSS, not JS strings.
+ *
+ * !important is required: the paragraphs Canva renders these lines into
+ * already carry an explicit text-align:left from Canva's own generated
+ * class (confirmed live -- setting text-align on an ancestor and relying on
+ * inheritance does not reach them, only overriding the property directly
+ * on the <p> wins). Marked via a data attribute so align.js can tell which
+ * lines it has already claimed without re-touching Canva's own classes.
+ */
+[data-cg-align-line] {
+  text-align: center !important;
+}
