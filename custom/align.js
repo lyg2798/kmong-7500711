@@ -37,10 +37,29 @@
   // reads as a flush-left list whose longest line stays where a centered
   // block would put it -- rather than starting at the left edge of the
   // 707px-wide box Canva gives it, which begins off-screen.
+  //
+  // The two parents'-names lines under the greeting are one row-group each,
+  // already centered inside their own box, so `align` is a no-op for them --
+  // what is off is the boxes: measured at 390 wide, '이해운...' sits exactly on
+  // the canvas center while '김광명...' sits 3.0px left of it, even though the
+  // two lines have identical 167.7px ink. The live Canva site is off by the
+  // same amount at every width measured (-3.0 at 390, -2.9 at 430, -2.2 at
+  // 768), so it is a stray drag in the source design rather than anything
+  // this mirror did -- fixed here alongside the other blocks the client asked
+  // about, and unlike the off-screen responsive duplicates noted at the top
+  // of this file it is on-screen and plainly visible. They are also two of
+  // the siblings invitation.js pushes down after it swaps in the 13-line
+  // greeting, which is safe because the two corrections are on different axes
+  // and neither reads the other's: invitation.js rewrites translateY and
+  // carries translateX through verbatim, and the correction below rewrites
+  // translateX from a live ink measurement that converges to a zero delta, so
+  // whichever runs first on a given pass the other still settles.
   var TARGETS = [
     { prefix: '마음 전하실 곳', align: 'center' },
     { prefix: '코스요리가', align: 'center' },
-    { prefix: '지하철', align: 'left' }
+    { prefix: '지하철', align: 'left' },
+    { prefix: '이해운', align: 'center' },
+    { prefix: '김광명', align: 'center' }
   ];
   // below this, the ink is already close enough to center that re-writing
   // the transform would just be floating-point noise -- treat as settled.
