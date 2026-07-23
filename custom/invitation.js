@@ -138,6 +138,23 @@
     }
   }
 
+  // Canva renders video playback controls into a separate overlay layer that
+  // is anchored to the *bottom* of the section and sized to match the canvas,
+  // so a control lands on the artwork it belongs to. That layer is a sibling
+  // of the canvas's branch, not an ancestor, so growSection() never reaches
+  // it -- and a section that grew by N slid every control in it down by N.
+  // That is how the record player's play button ended up floating over the
+  // photo below the LP instead of on it. Keeping the layer's height equal to
+  // the canvas's is the whole fix, and it self-corrects rather than
+  // accumulating, so it needs no shift bookkeeping of its own.
+  function syncControlOverlay(canvas, section) {
+    var overlay = section.getElementsByClassName('QhExXw')[0];
+    if (!overlay || !canvas.style.height) return;
+    if (overlay.style.height !== canvas.style.height) {
+      overlay.style.height = canvas.style.height;
+    }
+  }
+
   function process(canvas) {
     var rowGroup = canvas.getAttribute(DONE)
       ? null
@@ -165,6 +182,7 @@
       shiftBy(el, delta);
     }
     growSection(canvas, section, delta);
+    syncControlOverlay(canvas, section);
   }
 
   function scan() {
