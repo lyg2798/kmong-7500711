@@ -255,8 +255,25 @@
       if (i === index) t.classList.add('is-selected');
       else t.classList.remove('is-selected');
     });
-    var selectedThumb = refs.thumbs[index];
-    if (selectedThumb) selectedThumb.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    keepThumbInView(index);
+  }
+
+  // scrollIntoView() walks every scrollable ancestor, so at mount time -- when
+  // the gallery is still below the fold -- it scrolled the whole page down to
+  // the strip, dropping visitors into the middle of the invitation instead of
+  // the top. Only the strip's own horizontal offset should ever move here.
+  function keepThumbInView(index) {
+    var strip = refs.strip;
+    var thumb = refs.thumbs[index];
+    if (!strip || !thumb) return;
+    var pad = 8;
+    var left = thumb.offsetLeft;
+    var right = left + thumb.offsetWidth;
+    if (left < strip.scrollLeft + pad) {
+      strip.scrollLeft = Math.max(0, left - pad);
+    } else if (right > strip.scrollLeft + strip.clientWidth - pad) {
+      strip.scrollLeft = right - strip.clientWidth + pad;
+    }
   }
 
   // ---------- lightbox ----------
