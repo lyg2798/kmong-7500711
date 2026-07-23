@@ -15,6 +15,12 @@
 
   var SECTION_ID = 'PBYzMTLgcJwkz5Ld';
   var BOTTOM_MARGIN = 40;
+  // the design leaves 20px between a section's divider and the content under
+  // it -- measured on the LOCATION section, which still has its Canva layout
+  // and whose divider sits at the identical offset to this one's. The
+  // replaced gallery mounted flush against the divider instead, so the photo
+  // ran straight into it.
+  var TOP_MARGIN = 20;
   // below this, treat the measured container height as not-yet-meaningful
   // (e.g. the preview <img> hasn't decoded its new src yet) rather than
   // shrinking the section down to it -- see applySizerHeight().
@@ -418,7 +424,7 @@
   // only changes on a viewport-driven re-layout -- so this is only called
   // from the MutationObserver path, not on every photo selection.
   function applyTop(canvas, rowGroups) {
-    var topY = getContentBottomY(canvas, rowGroups);
+    var topY = getContentBottomY(canvas, rowGroups) + TOP_MARGIN;
     var newTop = topY + 'px';
     if (refs.container.style.top !== newTop) refs.container.style.top = newTop;
     refs.lastTopY = topY;
