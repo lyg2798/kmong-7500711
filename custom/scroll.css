@@ -1,0 +1,16 @@
+/*
+ * Stops the page rubber-banding past its own top and bottom.
+ *
+ * The invitation scrolls inside .ZRRuDw, not the document, so on iOS Safari a
+ * flick at either end drags the whole card away from the edge and exposes the
+ * browser's white backdrop behind it -- the design's cream background stops
+ * where the content does. overscroll-behavior on that scroller ends the
+ * gesture at the boundary instead; html/body are included because the
+ * document itself can bounce the same way once the inner scroller declines to
+ * chain the leftover scroll up to it.
+ */
+html,
+body,
+.ZRRuDw {
+  overscroll-behavior: none;
+}
