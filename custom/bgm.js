@@ -44,7 +44,11 @@
   var audio = document.createElement('audio');
   audio.src = AUDIO_SRC;
   audio.loop = true;
-  audio.preload = 'auto';
+  // 'auto' pulls all 5.9MB before the cover has even been tapped -- on the
+  // cover that was 48% of everything the reader was waiting for, spent on
+  // music they had not asked for yet. 'metadata' fetches the header now and
+  // streams the rest once they start it.
+  audio.preload = 'metadata';
   audio.setAttribute('playsinline', '');
   audio.style.display = 'none';
 
