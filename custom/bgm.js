@@ -1,83 +1,156 @@
 /*
- * Keeps the background music playing while the reader scrolls.
+ * Plays the background music from a real <audio> element instead of from the
+ * video node Canva put it in.
  *
- * Canva models the music as a *video* node -- it will not take bare audio --
- * and its runtime pauses a video once the section holding it leaves the
- * viewport. Sensible for a video nobody is looking at; this one is the
- * soundtrack, so scrolling down to LOCATION stopped the music and scrolling
- * back up started it again. Measured in WebKit: the element is never removed
- * and its `src` is untouched -- it simply receives `pause`.
+ * Canva models music as a *video* -- it will not take bare audio -- and that
+ * turned out to cost more than a wasted decode. Measured on the live site over
+ * a nine-second scroll down and back, sampling the audio clock against the
+ * wall clock:
  *
- * The first version of this file waited for that `pause` and called `play()`
- * again. It worked, but the round trip left an audible ~30ms hole in the
- * music every time the section scrolled out of view, which is the stutter
- * around LOCATION. So the pause is now declined outright: nothing stops, so
- * there is nothing to restart and no gap to hear.
+ *     Chromium   0 pauses   wall 8851ms   audio 8851ms   no loss
+ *     WebKit     0 pauses   wall 9033ms   audio 7593ms   lost 1440ms
  *
- * Two pauses are deliberately still allowed through:
- *   - the reader tapping the record's own control. A pause arriving just
- *     after a real tap is theirs, and swallowing it would make the control
- *     useless.
- *   - the page being backgrounded. The runtime pauses on `blur` and resumes
- *     on `focus`; `visibilityState` tells that apart from a scroll, so
- *     switching apps still silences the phone.
+ * Nothing is pausing it in either engine -- WebKit simply starves an
+ * off-screen video's decode, and the audio track rides the same pipeline, so
+ * the music drags and stutters while the reader scrolls. That is what the
+ * phone was doing around LOCATION. Every browser on iOS is WebKit, so this
+ * hits Safari, Chrome and the KakaoTalk in-app browser alike.
+ *
+ * So the music moves to its own <audio> element, which has no video pipeline
+ * to be throttled and belongs to no section that can scroll away. The video
+ * node stays exactly where it is and keeps doing its job as the record's
+ * play/pause control -- it is just silenced, and this mirrors its state onto
+ * the audio.
+ *
+ * Silencing has to be locked rather than merely set: the runtime's own
+ * first-gesture handler assigns `muted = false; volume = 1` to every media
+ * element it finds, so a plain assignment here would be undone on the reader's
+ * first tap and both tracks would play at once.
  */
 (function () {
   'use strict';
 
-  var SRC = 'custom/bgm.mp4';
+  var VIDEO_SRC = 'custom/bgm.mp4';
+  var AUDIO_SRC = 'custom/bgm.m4a';
   var GUARDED = 'data-cg-bgm';
 
   // A pause this close behind a trusted tap is the reader working the
-  // control. Long enough to cover the runtime's own state round-trip, short
-  // enough that a tap elsewhere a moment earlier is not mistaken for one.
+  // control, as opposed to the runtime reacting to a scroll.
   var GESTURE_WINDOW = 700;
 
   var lastGesture = 0;
+  var unlocked = false;
+
+  var audio = document.createElement('audio');
+  audio.src = AUDIO_SRC;
+  audio.loop = true;
+  audio.preload = 'auto';
+  audio.setAttribute('playsinline', '');
+  audio.style.display = 'none';
+
+  function attachAudio() {
+    if (!audio.parentNode && document.body) document.body.appendChild(audio);
+  }
+  if (document.body) attachAudio();
+  else document.addEventListener('DOMContentLoaded', attachAudio);
+
+  // A media element may only start inside a user gesture. The reader's first
+  // tap is spent on the runtime's own unlock, so this rides along with it:
+  // start and immediately stop, which leaves the element free to be started
+  // programmatically later.
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    attachAudio();
+    var wasMuted = audio.muted;
+    audio.muted = true;
+    var p = audio.play();
+    if (p && p.then) {
+      p.then(function () {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = wasMuted;
+      }, function () { audio.muted = wasMuted; });
+    }
+  }
+
   function noteGesture(e) {
-    if (e.isTrusted) lastGesture = Date.now();
+    if (!e.isTrusted) return;
+    lastGesture = Date.now();
+    unlock();
   }
   document.addEventListener('pointerdown', noteGesture, true);
   document.addEventListener('keydown', noteGesture, true);
 
-  var nativePause = HTMLMediaElement.prototype.pause;
+  // Leaving the page has to be handled here now. While the music rode the
+  // video element it stopped by itself, because the runtime pauses that
+  // element on `blur`; a separate <audio> gets no such treatment and would
+  // keep playing in the reader's pocket. `visibilitychange` is the signal
+  // that actually fires when a phone switches apps or locks.
+  var pausedByHide = false;
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+      if (!audio.paused) {
+        pausedByHide = true;
+        audio.pause();
+      }
+    } else if (pausedByHide) {
+      pausedByHide = false;
+      audio.play().catch(function () {});
+    }
+  });
 
-  function isBgm(el) {
-    return (el.currentSrc || el.src || '').indexOf(SRC) !== -1;
+  var mutedSetter = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted').set;
+  var volumeSetter = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume').set;
+
+  function silence(el) {
+    mutedSetter.call(el, true);
+    volumeSetter.call(el, 0);
+    try {
+      Object.defineProperty(el, 'muted', {
+        configurable: true,
+        get: function () { return true; },
+        set: function () {}
+      });
+      Object.defineProperty(el, 'volume', {
+        configurable: true,
+        get: function () { return 0; },
+        set: function () {}
+      });
+    } catch (e) {}
   }
 
-  function guard(el) {
+  function follow(el) {
     if (el.getAttribute(GUARDED)) return;
     el.setAttribute(GUARDED, '1');
+    silence(el);
 
-    // Nothing here may start the music on its own: until the reader's first
-    // play there is nothing to protect, so the runtime's gesture gating is
-    // left exactly as it is.
-    var started = false;
-    el.addEventListener('play', function () { started = true; });
+    el.addEventListener('play', function () {
+      attachAudio();
+      if (audio.paused) audio.play().catch(function () {});
+    });
 
-    el.pause = function () {
-      if (!started) return nativePause.call(el);
-      if (Date.now() - lastGesture < GESTURE_WINDOW) {
-        started = false;                    // the reader stopped it on purpose
-        return nativePause.call(el);
-      }
-      if (document.visibilityState !== 'visible') {
-        return nativePause.call(el);        // backgrounded; `focus` resumes it
-      }
-      // the runtime pausing an off-screen video -- this one is the music
-    };
+    // The runtime pauses a video whose section has scrolled out of view. That
+    // says nothing about whether the reader wants the music to stop, so only
+    // the two pauses that do are passed on.
+    el.addEventListener('pause', function () {
+      var byReader = Date.now() - lastGesture < GESTURE_WINDOW;
+      var backgrounded = document.visibilityState !== 'visible';
+      if (byReader || backgrounded) audio.pause();
+    });
   }
 
   function scan() {
     var videos = document.getElementsByTagName('video');
     for (var i = 0; i < videos.length; i++) {
-      if (isBgm(videos[i])) guard(videos[i]);
+      if ((videos[i].currentSrc || videos[i].src || '').indexOf(VIDEO_SRC) !== -1) {
+        follow(videos[i]);
+      }
     }
   }
 
   scan();
-  // The element is only created on the first pointer input and its `src` is
+  // The video is only created on the first pointer input and its `src` is
   // assigned after insertion, so both have to be caught.
   new MutationObserver(scan).observe(document.documentElement, {
     childList: true,
