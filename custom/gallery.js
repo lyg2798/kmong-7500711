@@ -15,6 +15,10 @@
 
   var SECTION_ID = 'PBYzMTLgcJwkz5Ld';
   var BOTTOM_MARGIN = 40;
+  // below this, treat the measured container height as not-yet-meaningful
+  // (e.g. the preview <img> hasn't decoded its new src yet) rather than
+  // shrinking the section down to it -- see applySizerHeight().
+  var MIN_CONTAINER_HEIGHT = 60;
 
   var PHOTOS = [
     '_assets/media/794702011abaac93d16e078df7404603.jpg',
@@ -47,7 +51,9 @@
     slides: [],
     counter: null,
     savedScrollerOverflow: null,
-    lastSizerHeight: null
+    lastSizerHeight: null,
+    lastTopY: 0,
+    resizeObserver: null
   };
 
   // ---------- locating the gallery section (defensive) ----------
@@ -148,6 +154,15 @@
     preview.className = 'cg-preview';
     var previewImg = document.createElement('img');
     previewImg.alt = '';
+    // the preview now sizes to each photo's natural aspect ratio (no crop),
+    // so its height is unknown until this fires -- recompute the section
+    // height right away rather than waiting on the ResizeObserver, since a
+    // cache miss means naturalHeight is 0 (and the container height
+    // unreliable) until this event.
+    previewImg.addEventListener('load', function () {
+      var section = findGallerySection();
+      if (section && refs.container) applySizerHeight(section);
+    });
     preview.appendChild(previewImg);
     preview.addEventListener('click', function () {
       openLightbox(state.selectedIndex);
@@ -362,22 +377,58 @@
 
   // ---------- mount / continuous re-apply ----------
 
-  function positionContainerAndSizer(section, canvas, rowGroups) {
-    var canvasRect = canvas.getBoundingClientRect();
+  // top only depends on where Canva's heading/divider currently sit, which
+  // only changes on a viewport-driven re-layout -- so this is only called
+  // from the MutationObserver path, not on every photo selection.
+  function applyTop(canvas, rowGroups) {
     var topY = getContentBottomY(canvas, rowGroups);
-
     var newTop = topY + 'px';
     if (refs.container.style.top !== newTop) refs.container.style.top = newTop;
+    refs.lastTopY = topY;
+    return topY;
+  }
 
+  // height depends on the container's own rendered size, which now varies
+  // per photo (preview keeps its natural aspect ratio, no crop) -- called
+  // both from the MutationObserver path and reactively from the
+  // ResizeObserver/image-load hooks below.
+  function applySizerHeight(section) {
+    if (!refs.container) return;
+    // guards the cache-miss case: right after swapping previewImg.src, the
+    // new image may not have decoded yet, so naturalHeight is still 0 and
+    // the container's measured height reflects the *old* photo or nothing.
+    // Skip and wait for the img's load event (or a later ResizeObserver
+    // tick) to re-trigger this with a real measurement.
+    if (refs.previewImg && !(refs.previewImg.complete && refs.previewImg.naturalHeight > 0)) {
+      return;
+    }
     var containerHeight = refs.container.getBoundingClientRect().height;
-    var totalHeight = Math.round(topY + containerHeight + BOTTOM_MARGIN);
-    var newHeightStr = totalHeight + 'px';
+    if (containerHeight < MIN_CONTAINER_HEIGHT) return;
 
+    var totalHeight = Math.round(refs.lastTopY + containerHeight + BOTTOM_MARGIN);
+    var newHeightStr = totalHeight + 'px';
     var sizer = findSizer(section);
     if (sizer && sizer.style.height !== newHeightStr) {
       sizer.style.height = newHeightStr;
       refs.lastSizerHeight = newHeightStr;
     }
+  }
+
+  function positionContainerAndSizer(section, canvas, rowGroups) {
+    applyTop(canvas, rowGroups);
+    applySizerHeight(section);
+  }
+
+  // reacts to the container's own size changing for reasons the Canva-side
+  // MutationObserver never sees: swapping the preview photo (each has a
+  // different natural aspect ratio now) or a delayed image decode.
+  function setupResizeObserver() {
+    if (refs.resizeObserver || !refs.container || typeof ResizeObserver === 'undefined') return;
+    refs.resizeObserver = new ResizeObserver(function () {
+      var section = findGallerySection();
+      if (section) applySizerHeight(section);
+    });
+    refs.resizeObserver.observe(refs.container);
   }
 
   function mountIfNeeded() {
@@ -410,6 +461,7 @@
         refs.container = buildGalleryUI();
         canvas.appendChild(refs.container);
         selectPhoto(state.selectedIndex);
+        setupResizeObserver();
       }
       positionContainerAndSizer(section, canvas, rowGroups);
     }
