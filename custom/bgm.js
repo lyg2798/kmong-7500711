@@ -3,31 +3,34 @@
  *
  * Canva models the music as a *video* node -- it will not take bare audio --
  * and its runtime pauses a video once the section holding it leaves the
- * viewport. That is sensible for a video nobody is looking at, but this
- * particular element is the soundtrack, so scrolling down to LOCATION stopped
- * the music and scrolling back up started it again. Measured in WebKit: the
- * element is never removed from the document and its `src` is untouched --
- * `connected` stays true throughout -- it simply receives `pause`, then `play`
- * again on the way back up. So the fix is not to keep the element alive but to
- * decline that one pause.
+ * viewport. Sensible for a video nobody is looking at; this one is the
+ * soundtrack, so scrolling down to LOCATION stopped the music and scrolling
+ * back up started it again. Measured in WebKit: the element is never removed
+ * and its `src` is untouched -- it simply receives `pause`.
  *
- * Two pauses we deliberately do NOT undo:
- *   - the reader tapping the record's own control. A pause arriving just after
- *     a real tap is theirs, and re-starting it would make the control useless.
- *   - the page being backgrounded. The runtime pauses on `blur` and resumes on
- *     `focus`; `visibilityState` tells the two cases apart, so switching apps
- *     still silences the phone the way a reader expects.
+ * The first version of this file waited for that `pause` and called `play()`
+ * again. It worked, but the round trip left an audible ~30ms hole in the
+ * music every time the section scrolled out of view, which is the stutter
+ * around LOCATION. So the pause is now declined outright: nothing stops, so
+ * there is nothing to restart and no gap to hear.
+ *
+ * Two pauses are deliberately still allowed through:
+ *   - the reader tapping the record's own control. A pause arriving just
+ *     after a real tap is theirs, and swallowing it would make the control
+ *     useless.
+ *   - the page being backgrounded. The runtime pauses on `blur` and resumes
+ *     on `focus`; `visibilityState` tells that apart from a scroll, so
+ *     switching apps still silences the phone.
  */
 (function () {
   'use strict';
 
   var SRC = 'custom/bgm.mp4';
-  var WATCHED = 'data-cg-bgm';
+  var GUARDED = 'data-cg-bgm';
 
-  // A pause this close behind a trusted tap is the reader working the control.
-  // Generous enough to cover the runtime's own state round-trip, short enough
-  // that a tap somewhere else on the page a moment earlier is not mistaken for
-  // one -- and an unrelated tap only costs one resume, on the next pause.
+  // A pause this close behind a trusted tap is the reader working the
+  // control. Long enough to cover the runtime's own state round-trip, short
+  // enough that a tap elsewhere a moment earlier is not mistaken for one.
   var GESTURE_WINDOW = 700;
 
   var lastGesture = 0;
@@ -37,40 +40,45 @@
   document.addEventListener('pointerdown', noteGesture, true);
   document.addEventListener('keydown', noteGesture, true);
 
+  var nativePause = HTMLMediaElement.prototype.pause;
+
   function isBgm(el) {
     return (el.currentSrc || el.src || '').indexOf(SRC) !== -1;
   }
 
-  function watch(el) {
-    if (el.getAttribute(WATCHED)) return;
-    el.setAttribute(WATCHED, '1');
+  function guard(el) {
+    if (el.getAttribute(GUARDED)) return;
+    el.setAttribute(GUARDED, '1');
 
-    // Only resume something the reader actually started. Before the first
-    // play this stays false, so nothing here can make the music start on its
-    // own -- the runtime's gesture gating is left exactly as it is.
-    var wanted = false;
+    // Nothing here may start the music on its own: until the reader's first
+    // play there is nothing to protect, so the runtime's gesture gating is
+    // left exactly as it is.
+    var started = false;
+    el.addEventListener('play', function () { started = true; });
 
-    el.addEventListener('play', function () { wanted = true; });
-
-    el.addEventListener('pause', function () {
-      if (Date.now() - lastGesture < GESTURE_WINDOW) { wanted = false; return; }
-      if (!wanted) return;
-      if (document.visibilityState !== 'visible') return;
-      el.play().catch(function () {});
-    });
+    el.pause = function () {
+      if (!started) return nativePause.call(el);
+      if (Date.now() - lastGesture < GESTURE_WINDOW) {
+        started = false;                    // the reader stopped it on purpose
+        return nativePause.call(el);
+      }
+      if (document.visibilityState !== 'visible') {
+        return nativePause.call(el);        // backgrounded; `focus` resumes it
+      }
+      // the runtime pausing an off-screen video -- this one is the music
+    };
   }
 
   function scan() {
     var videos = document.getElementsByTagName('video');
     for (var i = 0; i < videos.length; i++) {
-      if (isBgm(videos[i])) watch(videos[i]);
+      if (isBgm(videos[i])) guard(videos[i]);
     }
   }
 
   scan();
-  // The element is only created on the first pointer input, and its `src` is
-  // assigned after it is inserted, so both the insertion and the later
-  // attribute write have to be caught.
+  // The element is only created on the first pointer input and its `src` is
+  // assigned after insertion, so both have to be caught.
   new MutationObserver(scan).observe(document.documentElement, {
     childList: true,
     subtree: true,
