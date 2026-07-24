@@ -104,7 +104,7 @@
           // puts the "Save the Date" (matched against a screenshot of it).
           stdPct = {
             x: +((((dr.left + dr.width / 2) - cr.left) / cr.width * 100) - 1.4).toFixed(3),
-            y: +((((dr.top + dr.height / 2) - cr.top) / cr.height * 100) - 1.55).toFixed(3)
+            y: +((((dr.top + dr.height / 2) - cr.top) / cr.height * 100) - 1.30).toFixed(3)
           };
         }
       }
