@@ -59,23 +59,16 @@
   else document.addEventListener('DOMContentLoaded', attachAudio);
 
   // A media element may only start inside a user gesture. The reader's first
-  // tap is spent on the runtime's own unlock, so this rides along with it:
-  // start and immediately stop, which leaves the element free to be started
-  // programmatically later.
+  // tap is the one that opens the envelope, and the client wants the music to
+  // begin there -- so rather than merely priming the element, we start it for
+  // real inside that gesture and leave it playing. iOS allows an audible
+  // play() here because it happens synchronously inside a trusted tap.
   function unlock() {
     if (unlocked) return;
     unlocked = true;
     attachAudio();
-    var wasMuted = audio.muted;
-    audio.muted = true;
-    var p = audio.play();
-    if (p && p.then) {
-      p.then(function () {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.muted = wasMuted;
-      }, function () { audio.muted = wasMuted; });
-    }
+    audio.muted = false;
+    audio.play().catch(function () {});
   }
 
   function noteGesture(e) {
