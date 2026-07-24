@@ -29,7 +29,7 @@ Canva로 제작된 모바일 청첩장을 정적 사이트로 미러링해 GitHu
 
 1. `<base href="/kmong-7500711/">` — 서브패스 배포에서 자산 로딩·SPA 라우팅이 동작하기 위한 필수 수정
 2. `og:image` URL을 이 도메인으로 교체 (카카오톡 등 공유 미리보기)
-3. 문서 끝 폴백 스크립트 — 참석여부(RSVP) 폼 위젯은 Canva 백엔드가 자기 도메인 외 임베드를 CSP로 차단하므로, 위젯 iframe을 무력화(`about:blank` + 숨김)하고 같은 자리에 "참석여부 입력하기" 패널(원본 Canva 사이트의 참석여부 페이지를 새 창으로 엶)을 표시. 응답은 기존처럼 Canva 응답함에 수집됨.
+3. 참석여부(RSVP)는 **자체 폼으로 대체** — `custom/rsvp.js`가 담당(아래 모듈표·참고 참조). 원래는 문서 끝 인라인 폴백 스크립트가 있었으나 `rsvp.js`로 옮기며 제거함.
 4. 스크롤바 숨김 `<style>` (`scrollbar-width: none` + `::-webkit-scrollbar`) — 스크롤 자체는 그대로 동작
 5. `custom/` 모듈을 불러오는 `<link>` / `<script defer>` 태그
 6. BGM 노드를 **재생 경로가 하나만 남도록** 정리 (bootstrap JSON 안 2곳, 같은 노드가 두 번 등장)
@@ -80,6 +80,7 @@ Canva로 제작된 모바일 청첩장을 정적 사이트로 미러링해 GitHu
 | `scroll.css` | 스크롤 컨테이너가 위·아래 끝을 넘어 튕기는(rubber-band) 것 차단 (`overscroll-behavior: none`). iOS 16 미만은 이 속성을 무시함. 데스크톱 Chrome은 애초에 rubber-band가 없어 **계산된 스타일만 확인**했고 실기기(아이폰) 검증은 아직 못 함 |
 | `bgm.js` | **음악을 자체 `<audio>`로 재생**하고, Canva 영상 노드는 소리를 잠근 채 LP의 재생/정지 조작부로만 씁니다. 영상의 play/pause를 오디오에 옮겨 붙이되, **스크롤로 인한 pause는 전달하지 않습니다**(아래 참고). 전달하는 것은 둘뿐 — 사용자가 컨트롤을 누른 경우(직전 700ms 안의 신뢰된 탭), 페이지가 백그라운드로 간 경우(`visibilitychange`). 소리 잠금은 **대입이 아니라 `defineProperty`로 고정**해야 합니다. 런타임이 첫 탭에 모든 미디어에 `muted=false; volume=1`을 걸어서, 그냥 대입하면 첫 탭에 풀리고 두 소리가 겹칩니다 |
 | `cover.js` | 커버의 **봉투 전체를 눌러서 열 수 있게** 함. Canva가 만든 "Open the invitation" 타깃은 글자마다 하나씩 잘린 `<a href="#page-1">` 31개라 가운데에 구멍이 있고, 그 구멍이 하필 **밀랍 씰 위**에 있음 (아래 참고) |
+| `rsvp.js` | 참석여부 폼을 **캔바와 동일한 디자인의 자체 인라인 폼으로 대체**. 캔바 위젯(iframe)은 `X-Frame-Options: SAMEORIGIN`으로 외부 도메인 임베드가 원천 차단되므로 무력화(`about:blank`+숨김)하고, 같은 자리에 성함·하객측·참석여부·참석인원·식사여부 5개 필드를 그려 넣음. 제출은 **Google Apps Script 웹앱**으로 POST → 클라이언트(현재는 JQ 개인) **구글 시트**에 한 줄씩 적재. 파일 상단 `RSVP_ENDPOINT`가 그 웹앱 URL (아래 참고) |
 | `bgm.m4a` | **실제로 들리는 배경음악** (AAC 192kbps 44.1kHz, 비디오 트랙 없음) |
 | `bgm.mp4` | LP의 조작부 역할만 하는 영상. 소리도 화면도 없으므로 최소 크기(128×128, 10fps, 무음 트랙, 255.9초)면 충분합니다. 길이는 음원과 맞춰 두세요 |
 
@@ -105,6 +106,16 @@ Canva로 제작된 모바일 청첩장을 정적 사이트로 미러링해 GitHu
   청첩장이 안 열린 것과 구분이 안 됩니다. 전 폭(320/360/390/412/430) 실측으로 재현됐고
   `custom/cover.js`가 봉투 안쪽 탭을 앵커로 넘겨서 막았습니다.
   **커버를 건드리면 가운데를 눌러보고 확인하세요. 화면만 봐서는 절대 안 보입니다.**
+- **참석여부(RSVP)는 자체 폼 → 구글 시트입니다.** `custom/rsvp.js` 상단 `RSVP_ENDPOINT`가
+  Google Apps Script 웹앱 URL이고, 그 스크립트(`doPost`)가 지정된 구글 시트에 한 줄씩 append합니다.
+  - **응답 수신처(구글 시트)를 바꾸려면**: 그 시트의 `확장 프로그램 → Apps Script`에 `doPost`를
+    붙이고 `배포 → 웹 앱(실행: 나 / 액세스: 모든 사용자)` 후 나온 `.../exec` URL을 `RSVP_ENDPOINT`에 교체.
+    현재는 JQ 개인 시트에 임시 연결(클라이언트 계정으로 이관 예정).
+  - **제출은 `fetch(..., {mode:'no-cors'})`** — 응답을 읽을 수 없으므로(불투명) 성공은 낙관적으로 처리.
+    Apps Script는 POST를 받으면 `302 → script.googleusercontent.com/macros/echo`로 넘기는데
+    **이 302 자체가 doPost 실행 완료의 신호**입니다(접근 거부면 로그인으로 감). `curl`로 확인할 때
+    `-L`로 리디렉션을 따라가면 echo 토큰이 한 번 쓰고 버려져 405가 뜨지만 **허상**이니,
+    `-o /dev/null -w %{http_code}` 로 **초기 302만** 보세요. 최종 판정은 시트에 줄이 쌓였는지로.
 - **미디어 `preload`는 커버의 대기시간입니다.** `bgm.m4a`는 5.9MB인데 `preload='auto'`면
   손님이 봉투를 누르기도 전에 전부 내려받습니다. 커버까지 받는 12MB의 절반이 아직 듣겠다고
   하지도 않은 음악이었습니다. `'metadata'`로 두면 헤더만 받고 재생 시점에 스트리밍합니다.
@@ -137,7 +148,7 @@ gh api repos/lyg2798/kmong-7500711/pages/builds/latest --jq '{status, commit: .c
 ## 알려진 동작 (무해)
 
 - 콘솔의 `Embed fetcher is not set` 경고, `/_online` 404, iframe sandbox 정보성 경고 — Canva 익스포트/폴백 구조상 나타나는 무해 항목
-- 참석여부 폼의 실제 제출은 원본 Canva 사이트가 게시 상태여야 동작함
+- 참석여부 폼 제출은 이제 **Canva와 무관** — 자체 폼 → 구글 시트(`custom/rsvp.js`, 위 참고). 원본 Canva 게시 여부와 상관없이 동작함
 
 ## 커스텀 도메인을 붙이게 되면
 
