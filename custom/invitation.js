@@ -1,3 +1,9 @@
+/* NO LONGER LOADED. Swapped the Invitation section's English placeholder for the greeting.
+ * The three HTML documents stopped including this file when custom/relayout.js
+ * replaced the page below the envelope: everything it corrected lives in the
+ * Canva sections that are now hidden. Kept so that restoring the old layout is
+ * a matter of restoring the tags, not recovering files. See README.md. */
+
 /*
  * Swaps the Invitation section's placeholder copy for the couple's greeting.
  *

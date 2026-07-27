@@ -1,3 +1,9 @@
+/* NO LONGER LOADED. Resized and centred the six Canva section headings.
+ * The three HTML documents stopped including this file when custom/relayout.js
+ * replaced the page below the envelope: everything it corrected lives in the
+ * Canva sections that are now hidden. Kept so that restoring the old layout is
+ * a matter of restoring the tags, not recovering files. See README.md. */
+
 /*
  * Puts all six section headings -- INVITATION / WEDDING DAY / LOCATION /
  * GALLERY / INFORMATION / 마음 전하실 곳 -- and the ornamental divider under

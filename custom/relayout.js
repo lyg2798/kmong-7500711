@@ -1,0 +1,847 @@
+/*
+ * Rebuilds the main page below the envelope.
+ *
+ * What the client asked for: keep the envelope at the top of /main-page exactly
+ * as it is, and from the Invitation section down use the layout of
+ * anniversarymovie.kr/view/template02 -- its section order, its shapes (movie
+ * quote, month calendar with a D-day line, single photo with a thumbnail strip,
+ * venue block with map and route notes, swipeable information cards, an
+ * expanding 마음 전하실 곳, an inline RSVP form) -- with this invitation's own
+ * words, its own two cream bands and its own ink colour.
+ *
+ * Why the Canva sections are replaced rather than edited: they are not a
+ * document, they are one absolutely-positioned canvas per section whose element
+ * positions the runtime recomputes in pixels at every viewport width. There is
+ * no flow to re-order, no wrapping to re-flow, and every position is a number
+ * the runtime owns and rewrites. Moving to normal document flow for the new
+ * layout is what makes it responsive at all, and it costs nothing here because
+ * every one of those sections is being replaced anyway.
+ *
+ * The envelope is the exception, so it is left strictly alone: no element of it
+ * is moved, resized or restyled. The only thing done to its section is that its
+ * *height* is clipped to where the artwork ends, and even that is applied to
+ * the <section> box rather than to the canvas inside it -- savethedate.js
+ * positions "Save the Date" as a percentage of the canvas, and that position was
+ * tuned by hand, so the canvas has to keep the height Canva gave it.
+ *
+ * Nothing here writes an inline style onto a Canva-owned element. The runtime
+ * rewrites those wholesale on resize, so the hiding is done with an attribute
+ * plus an !important rule in relayout.css (which an inline style cannot beat)
+ * and the hero height is published as a custom property. A MutationObserver
+ * re-tags anything the runtime re-creates, and the new content is re-mounted if
+ * a re-render ever detaches it.
+ *
+ * Modules this replaces, whose tags came out of the three HTML documents:
+ * gallery.js/.css, align.js/.css, invitation.js and heading.js -- all four only
+ * corrected things that live in the sections below the envelope.
+ */
+(function () {
+  'use strict';
+
+  // ------------------------------------------------------------------ copy ---
+  // Every line is the invitation's own text, carried over from the Canva
+  // sections this replaces. The RSVP field keys and stored values are also
+  // carried over unchanged, because the Apps Script behind them writes those
+  // exact keys into the couple's sheet (see custom/rsvp.js).
+
+  var QUOTE = [
+    '당신은 왜 그렇게 사람들이 결혼을 한다고 생각해요 ?',
+    '우리 삶에는 증인이 필요하기 때문이에요',
+    // one line in the Canva design, where it filled the full width and was
+    // flagged as cramped; broken at its own clause instead of wherever the
+    // measure happens to run out
+    '좋은 일들 나쁜 일들 지루하고 사소한 일들까지도',
+    '그 모든 것들을요 언제나 매일같이',
+    '그래서 결혼을 하는 이유를 이렇게 말할 수 있어요',
+    '당신의 삶이 아무 의미 없이 헛되이 흘러가게 두지 않을 거에요',
+    '내가 온 마음을 다해 당신을 알아봐줄테니까요',
+    '당신의 삶이 홀로 외로이 흐르지 않게 할게요',
+    '내가 당신의 곁에서 모든 순간의 증인이 되어줄테니까요'
+  ];
+  var CITE = "-영화 <쉘 위 댄스 Shall We Dance?>-";
+  var GREETING = ['예쁘게 잘 살겠습니다.', '귀한 발걸음 하시어', '축복해주시면 감사하겠습니다.'];
+  var PARENTS = [
+    { parents: '이해운 · 오현정', rel: '의 차남', child: '이근상' },
+    { parents: '김광명 · 김미희', rel: '의 장녀', child: '김수민' }
+  ];
+
+  var DATE_LINE = '2026년 10월 11일 일요일 오후 1시';
+  var WEDDING = { year: 2026, month: 10, day: 11, label: 'Oct.' };
+
+  var VENUE = 'JW메리어트 동대문스퀘어';
+  var HALL = '그랜드볼룸';
+  var ADDRESS = '서울 종로구 청계천로 279';
+  // the search the invitation's own embedded map used, kept verbatim so the
+  // map shows the same place it shows today
+  var MAP_SRC =
+    'https://maps.google.com/maps?q=JW%20%EB%A7%88%EB%A6%AC%EC%98%A4%ED%8A%B8%20%EB%8F%99%EB%8C%80%EB%AC%B8%20%EC%8A%A4%ED%80%98%EC%96%B4%20%EC%84%9C%EC%9A%B8&z=17&output=embed';
+  var MAP_QUERY = 'JW 메리어트 동대문 스퀘어 서울';
+  var WAYS = [
+    { label: '지하철', lines: ['1호선,4호선 동대문역 9번출구', '9번출구와 호텔이 연결되어있습니다.'] },
+    { label: '주차', lines: ['지하 주차장 이용가능(4시간 무료)'] }
+  ];
+
+  var INFO_CARDS = [
+    {
+      title: '식사 안내',
+      lines: ['코스요리가 좌석에 제공되는 동시예식으로 진행됩니다.', '모바일 청첩장을 통해 참석여부를 꼭 응답해주세요 !']
+    },
+    {
+      title: '답례품 안내',
+      lines: ['식사를 못하고 가시는 분들에게는 소정의 답례품이 준비되어있습니다.', '접수처에 꼭 알려주세요!']
+    }
+  ];
+
+  // The Canva section this replaces still carried Canva's placeholder contacts
+  // ("(123) 456-7890", "hello@reallygreatsite.com"). These are the real accounts
+  // the couple gave. `copy` is what lands on the clipboard: the number on its
+  // own, because that is what a banking app's field will accept.
+  var HEART = {
+    title: '마음 전하실 곳',
+    desc: ['참석이 어려우신 분들을 위해 기재했습니다.', '너그러운 마음으로 양해 부탁드립니다.'],
+    groups: [
+      {
+        label: '신랑측 계좌번호',
+        rows: [{ who: '신랑 이근상', bank: '국민', account: '300101-04-005139' }]
+      },
+      {
+        label: '신부측 계좌번호',
+        rows: [
+          { who: '신부 김수민', bank: '우리', account: '100-253-259347' },
+          { who: '신부 아버지 김광명', bank: '신한', account: '110020942368' },
+          { who: '신부 어머니 김미희', bank: '농협', account: '205032-56-034040' }
+        ]
+      }
+    ]
+  };
+
+  var PHOTOS = [
+    '_assets/media/794702011abaac93d16e078df7404603.jpg',
+    '_assets/media/354b0b6806f4b317f1a080c16001af61.jpg',
+    '_assets/media/a13654e94f8e82561aa9bbdcb0782828.jpg',
+    '_assets/media/7e7996523dbceb212b46502258c613f0.jpg',
+    '_assets/media/a82bce9d9189aca3d57da0f1730fc0d0.jpg',
+    '_assets/media/bb4642226dc6b83764e2bc5fa91c5952.jpg',
+    '_assets/media/3c6030ff45b87d4572208cd473d92aef.jpg',
+    '_assets/media/b9251585a29695f0620fa4f9ec11af51.jpg',
+    '_assets/media/9bc15f702a6d120770fa3e4dbf6033fa.jpg',
+    '_assets/media/5a560770836c1ab5fe6ffff94e9927ae.jpg',
+    '_assets/media/55a0002efe306324b3ddfc657a2db48c.jpg',
+    '_assets/media/f65e9229e7ee7c6e87fe10a08eb74ba7.jpg'
+  ];
+
+  var FOOTER = {
+    love: 'With love',
+    names: '근상 & 수민',
+    linkText: 'Return to the Invitation',
+    bg: '_assets/media/18864571ef4a9d4b4fcbabc7e8593f5b.jpg'
+  };
+
+  // Same web app, same payload keys, same stored option values as
+  // custom/rsvp.js -- the page it serves is still reachable by its old link, so
+  // both forms have to write rows the sheet already understands.
+  var RSVP_ENDPOINT =
+    'https://script.google.com/macros/s/AKfycbzXVf0dQFh15azoXQYP4EBVpBkmddwjaPHlqfwzfz-gpRQsvmD-roAmwvO0KyW6qcdq/exec';
+  var RSVP_FIELDS = [
+    { key: 'side', label: '구분', cols: 2, options: [['신랑측', '신랑측'], ['신부측', '신부측']] },
+    { key: 'attend', label: '참석 여부', cols: 3, options: [['참석', '참석'], ['불참', '불참'], ['미정', '미정']] },
+    { key: 'count', label: '참석 인원', cols: 3, options: [['1명', '1명'], ['2명', '2명'], ['3명 이상', '3명 이상']] },
+    { key: 'meal', label: '식사 여부', cols: 2, options: [['식사 가능', 'O'], ['식사 불가', 'X']] }
+  ];
+
+  // --------------------------------------------------------------- helpers ---
+
+  var HEADING = 'invitation'; // first element of the block being replaced
+  var HIDDEN = 'data-cg-hidden';
+  var HERO = 'data-cg-hero';
+  var OFF = 'data-cg-off';
+  var SILENT = 'data-cg-silent';
+  var ROOT_ID = 'cg-relayout';
+  // The record's two own assets: the vinyl gif (same file savethedate.js keys
+  // on) and the poster the video node shows before it has a frame.
+  var RECORD_ASSETS = ['25c11e232ed05049fca21b437993b044', 'cba54343da0532d34e9c7300d358d6bc'];
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function lines(parent, arr, cls) {
+    for (var i = 0; i < arr.length; i++) parent.appendChild(el('p', cls || null, arr[i]));
+    return parent;
+  }
+
+  function section(title, alt, kr) {
+    var s = el('section', 'cg-sec' + (alt ? ' cg-sec--alt' : ''));
+    var inner = el('div', 'cg-in');
+    if (title) inner.appendChild(el('h2', kr ? 'cg-h-kr' : 'cg-h', title));
+    s.appendChild(inner);
+    return { section: s, inner: inner };
+  }
+
+  // translateY as the runtime wrote it. Read from the inline transform rather
+  // than from a rect so that an element already hidden still reports where it
+  // belongs -- a display:none element has no rect, and classifying by rect
+  // would let everything hidden on one pass drift back on the next.
+  function translateY(node) {
+    var m = /translate\(\s*-?[\d.]+px\s*,\s*(-?[\d.]+)px/.exec((node.style && node.style.transform) || '');
+    return m ? parseFloat(m[1]) : null;
+  }
+
+  // ------------------------------------------------------- the Canva side ---
+
+  function heroParts() {
+    var canvases = document.getElementsByClassName('_mXnjA');
+    for (var i = 0; i < canvases.length; i++) {
+      var canvas = canvases[i];
+      for (var j = 0; j < canvas.children.length; j++) {
+        var kid = canvas.children[j];
+        if ((kid.textContent || '').trim().toLowerCase() === HEADING) {
+          var sec = canvas.closest ? canvas.closest('section') : null;
+          if (sec) return { section: sec, canvas: canvas, cut: translateY(kid) };
+        }
+      }
+    }
+    return null;
+  }
+
+  // The three subtrees the record was built from, named by what they contain
+  // rather than by where they sit: the vinyl gif, the silent BGM video node,
+  // and the curved "click to play" lettering. savethedate.js already removes
+  // them, but by sweeping the elements stacked under the playback control --
+  // and the runtime sets that control to display:none while the video plays, so
+  // the sweep has nothing to aim at and the record can survive it. This is the
+  // same removal expressed as a property of the nodes.
+  function isRecord(node) {
+    if (node.getElementsByTagName('video').length) return true;
+    var imgs = node.getElementsByTagName('img');
+    for (var i = 0; i < imgs.length; i++) {
+      var src = imgs[i].currentSrc || imgs[i].src || '';
+      for (var a = 0; a < RECORD_ASSETS.length; a++) {
+        if (src.indexOf(RECORD_ASSETS[a]) !== -1) return true;
+      }
+    }
+    return /click\s*to\s*play/i.test((node.textContent || '').replace(/\s+/g, ' '));
+  }
+
+  // Hide every section but the envelope's, hide everything inside the
+  // envelope's canvas that sits at or below the Invitation heading, and publish
+  // the height the artwork actually needs.
+  function trimCanva(parts) {
+    var secs = document.getElementsByTagName('section');
+    for (var i = 0; i < secs.length; i++) {
+      // the rebuilt page is made of <section>s too, and they are not Canva's
+      if (secs[i].closest && secs[i].closest('#' + ROOT_ID)) continue;
+      if (secs[i] === parts.section) {
+        if (!secs[i].hasAttribute(HERO)) secs[i].setAttribute(HERO, '1');
+        if (secs[i].hasAttribute(HIDDEN)) secs[i].removeAttribute(HIDDEN);
+      } else if (!secs[i].hasAttribute(HIDDEN)) {
+        secs[i].setAttribute(HIDDEN, '1');
+      }
+    }
+
+    if (parts.cut == null) return;
+
+    var canvas = parts.canvas;
+    var cr = canvas.getBoundingClientRect();
+    if (!cr.width) return;
+    var bottom = 0;
+    for (var k = 0; k < canvas.children.length; k++) {
+      var kid = canvas.children[k];
+      var ty = translateY(kid);
+      if (ty == null) continue;           // the canvas's own wrappers, and our
+                                          // "Save the Date" line, which is
+                                          // positioned in per-cent
+      if (ty >= parts.cut - 1) {
+        if (!kid.hasAttribute(HIDDEN)) kid.setAttribute(HIDDEN, '1');
+        continue;
+      }
+      if (kid.hasAttribute(HIDDEN)) kid.removeAttribute(HIDDEN);
+      if (isRecord(kid)) {
+        // invisible, so it is not artwork and must not set the hero's height
+        if (!kid.hasAttribute(SILENT)) kid.setAttribute(SILENT, '1');
+        continue;
+      }
+      var r = kid.getBoundingClientRect();  // a rect, so a rotated frame counts
+                                            // the corners it actually reaches
+      if (r.height) bottom = Math.max(bottom, r.bottom - cr.top);
+    }
+    if (bottom > 0) {
+      // +2px so a sub-pixel rounding difference can never shave the tip off the
+      // hanging flowers. The band below is the same cream, so it cannot show.
+      var h = Math.round(bottom + 2) + 'px';
+      if (document.documentElement.style.getPropertyValue('--cg-hero-h') !== h) {
+        document.documentElement.style.setProperty('--cg-hero-h', h);
+      }
+    }
+  }
+
+  // A hidden iframe still loads. Two of them are worth switching off on a
+  // mobile connection: the third-party countdown widget, and the embedded map,
+  // whose tiles the new Location section fetches again for its own copy.
+  function silenceHiddenFrames() {
+    var frames = document.getElementsByTagName('iframe');
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i];
+      if (f.hasAttribute(OFF)) continue;
+      if (!f.src || f.src === 'about:blank') continue;
+      if (!f.closest) continue;
+      if (f.closest('#' + ROOT_ID)) continue;          // never our own map
+      if (!f.closest('[' + HIDDEN + ']')) continue;    // only what we hid
+      f.setAttribute(OFF, '1');
+      f.src = 'about:blank';
+    }
+  }
+
+  // ------------------------------------------------------ the new sections ---
+
+  function buildInvitation() {
+    var s = section('INVITATION', false);
+    var quote = el('div', 'cg-quote');
+    lines(quote, QUOTE);
+    quote.appendChild(el('p', 'cg-cite', CITE));
+    s.inner.appendChild(quote);
+    s.inner.appendChild(lines(el('div', 'cg-greet'), GREETING));
+
+    var box = el('div', 'cg-parents');
+    for (var i = 0; i < PARENTS.length; i++) {
+      var row = el('p', 'cg-parent');
+      row.appendChild(document.createTextNode(PARENTS[i].parents));
+      row.appendChild(el('span', 'cg-rel', PARENTS[i].rel));
+      row.appendChild(el('span', 'cg-child', PARENTS[i].child));
+      box.appendChild(row);
+    }
+    s.inner.appendChild(box);
+    return s.section;
+  }
+
+  // Days left, counted on the Korean calendar whatever the phone is set to: a
+  // guest abroad should read the same number as a guest in Seoul.
+  function daysLeft() {
+    var now = new Date();
+    var kst = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 9 * 3600000);
+    var today = Date.UTC(kst.getFullYear(), kst.getMonth(), kst.getDate());
+    var day = Date.UTC(WEDDING.year, WEDDING.month - 1, WEDDING.day);
+    return Math.round((day - today) / 86400000);
+  }
+
+  function buildWeddingDay() {
+    var s = section('WEDDING DAY', true);
+    s.inner.appendChild(el('p', 'cg-date', DATE_LINE));
+    s.inner.appendChild(el('p', 'cg-month', WEDDING.label));
+
+    var cal = el('div', 'cg-cal');
+    var head = el('div', 'cg-cal-row cg-cal-head');
+    var names = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    for (var i = 0; i < 7; i++) head.appendChild(el('span', null, names[i]));
+    cal.appendChild(head);
+
+    var first = new Date(Date.UTC(WEDDING.year, WEDDING.month - 1, 1)).getUTCDay();
+    var total = new Date(Date.UTC(WEDDING.year, WEDDING.month, 0)).getUTCDate();
+    var row = el('div', 'cg-cal-row');
+    for (var b = 0; b < first; b++) row.appendChild(el('span', 'cg-cal-cell'));
+    for (var d = 1; d <= total; d++) {
+      var weekday = (first + d - 1) % 7;
+      var cell = el('span', 'cg-cal-cell' + (weekday === 0 ? ' cg-sunday' : ''));
+      if (d === WEDDING.day) cell.appendChild(el('span', 'cg-mark', String(d)));
+      else cell.textContent = String(d);
+      row.appendChild(cell);
+      if (weekday === 6 || d === total) {
+        cal.appendChild(row);
+        row = el('div', 'cg-cal-row');
+      }
+    }
+    s.inner.appendChild(cal);
+    s.inner.appendChild(el('div', 'cg-rule'));
+
+    var left = daysLeft();
+    var dday = el('p', 'cg-dday');
+    if (left > 0) {
+      dday.appendChild(document.createTextNode('결혼식이 '));
+      dday.appendChild(el('b', null, left + '일'));
+      dday.appendChild(document.createTextNode(' 남았습니다.'));
+    } else if (left === 0) {
+      dday.textContent = '오늘은 저희 두 사람의 결혼식입니다.';
+    }
+    if (dday.textContent) s.inner.appendChild(dday);
+    return s.section;
+  }
+
+  function buildGallery() {
+    var s = section('GALLERY', false);
+    var state = { index: 0 };
+
+    var photo = el('div', 'cg-photo');
+    var big = document.createElement('img');
+    big.src = PHOTOS[0];
+    big.alt = '';
+    big.decoding = 'async';
+    photo.appendChild(big);
+    s.inner.appendChild(photo);
+
+    var strip = el('div', 'cg-strip');
+    var prev = el('button', 'cg-arrow', '‹');
+    var track = el('div', 'cg-strip-track');
+    var next = el('button', 'cg-arrow', '›');
+    prev.type = next.type = 'button';
+    prev.setAttribute('aria-label', '이전 사진들');
+    next.setAttribute('aria-label', '다음 사진들');
+
+    var thumbs = [];
+    for (var i = 0; i < PHOTOS.length; i++) {
+      var t = el('button', 'cg-thumb');
+      t.type = 'button';
+      var im = document.createElement('img');
+      im.src = PHOTOS[i];
+      im.alt = '';
+      im.loading = 'lazy';
+      im.decoding = 'async';
+      t.appendChild(im);
+      t.addEventListener('click', (function (n) { return function () { select(n); }; })(i));
+      track.appendChild(t);
+      thumbs.push(t);
+    }
+    strip.appendChild(prev);
+    strip.appendChild(track);
+    strip.appendChild(next);
+    s.inner.appendChild(strip);
+
+    function select(n) {
+      state.index = n;
+      big.src = PHOTOS[n];
+      for (var i = 0; i < thumbs.length; i++) {
+        thumbs[i].setAttribute('aria-current', i === n ? 'true' : 'false');
+      }
+    }
+    function paged(dir) {
+      track.scrollBy({ left: dir * track.clientWidth, behavior: 'smooth' });
+    }
+    function syncArrows() {
+      prev.disabled = track.scrollLeft <= 1;
+      next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1;
+    }
+    prev.addEventListener('click', function () { paged(-1); });
+    next.addEventListener('click', function () { paged(1); });
+    track.addEventListener('scroll', syncArrows);
+    window.addEventListener('resize', syncArrows);
+    photo.addEventListener('click', function () { openLightbox(state.index, select); });
+    select(0);
+    setTimeout(syncArrows, 0);
+    return s.section;
+  }
+
+  // ------------------------------------------------------------- lightbox ---
+
+  var lightbox = null;
+
+  function openLightbox(start, onChange) {
+    if (lightbox) return;
+    var index = start;
+    var scroller = document.getElementsByClassName('ZRRuDw')[0];
+    var restore = scroller ? scroller.style.overflowY : null;
+    if (scroller) scroller.style.overflowY = 'hidden';
+
+    var box = el('div', 'cg-lb');
+    var img = document.createElement('img');
+    img.alt = '';
+    var count = el('div', 'cg-lb-count');
+    var prev = el('button', 'cg-lb-btn cg-lb-prev', '‹');
+    var next = el('button', 'cg-lb-btn cg-lb-next', '›');
+    var close = el('button', 'cg-lb-btn cg-lb-close', '✕');
+    prev.type = next.type = close.type = 'button';
+    close.setAttribute('aria-label', '닫기');
+    box.appendChild(img);
+    box.appendChild(prev);
+    box.appendChild(next);
+    box.appendChild(close);
+    box.appendChild(count);
+
+    function show(n) {
+      index = (n + PHOTOS.length) % PHOTOS.length;
+      img.src = PHOTOS[index];
+      count.textContent = index + 1 + ' / ' + PHOTOS.length;
+      if (onChange) onChange(index);
+    }
+    function shut() {
+      document.removeEventListener('keydown', onKey);
+      if (scroller) scroller.style.overflowY = restore || '';
+      if (box.parentNode) box.parentNode.removeChild(box);
+      lightbox = null;
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') shut();
+      else if (e.key === 'ArrowLeft') show(index - 1);
+      else if (e.key === 'ArrowRight') show(index + 1);
+    }
+    prev.addEventListener('click', function (e) { e.stopPropagation(); show(index - 1); });
+    next.addEventListener('click', function (e) { e.stopPropagation(); show(index + 1); });
+    close.addEventListener('click', function (e) { e.stopPropagation(); shut(); });
+    box.addEventListener('click', function (e) { if (e.target === box || e.target === img) shut(); });
+    document.addEventListener('keydown', onKey);
+
+    var x0 = null;
+    box.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+    box.addEventListener('touchend', function (e) {
+      if (x0 == null) return;
+      var dx = e.changedTouches[0].clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) > 40) show(index + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+
+    show(index);
+    document.body.appendChild(box);
+    lightbox = box;
+  }
+
+  // ------------------------------------------------------------- location ---
+
+  function buildLocation() {
+    var s = section('LOCATION', true);
+    s.inner.appendChild(el('p', 'cg-venue', VENUE));
+    s.inner.appendChild(el('p', 'cg-hall', HALL));
+    s.inner.appendChild(el('p', 'cg-addr', ADDRESS));
+
+    var map = el('div', 'cg-map');
+    var frame = document.createElement('iframe');
+    frame.src = MAP_SRC;
+    frame.loading = 'lazy';
+    frame.title = VENUE + ' ' + HALL;
+    frame.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+    map.appendChild(frame);
+    s.inner.appendChild(map);
+
+    var ways = el('div', 'cg-ways');
+    for (var i = 0; i < WAYS.length; i++) {
+      var w = el('div', 'cg-way');
+      w.appendChild(el('p', 'cg-way-label', WAYS[i].label));
+      w.appendChild(lines(el('div', 'cg-way-body'), WAYS[i].lines));
+      ways.appendChild(w);
+    }
+    s.inner.appendChild(ways);
+
+    var links = el('div', 'cg-maplinks');
+    var apps = [
+      { name: '네이버 지도', url: 'https://map.naver.com/p/search/' + encodeURIComponent(MAP_QUERY) },
+      { name: '카카오맵', url: 'https://map.kakao.com/?q=' + encodeURIComponent(MAP_QUERY) }
+    ];
+    for (var a = 0; a < apps.length; a++) {
+      var link = el('a', 'cg-maplink', apps[a].name);
+      link.href = apps[a].url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      links.appendChild(link);
+    }
+    s.inner.appendChild(links);
+    return s.section;
+  }
+
+  // ---------------------------------------------------------- information ---
+
+  function buildInformation() {
+    var s = section('INFORMATION', false);
+    var cards = el('div', 'cg-cards');
+    var dots = el('div', 'cg-dots');
+    var dotList = [];
+
+    for (var i = 0; i < INFO_CARDS.length; i++) {
+      var card = el('div', 'cg-card');
+      card.appendChild(el('p', 'cg-card-title', INFO_CARDS[i].title));
+      card.appendChild(lines(el('div', 'cg-card-body'), INFO_CARDS[i].lines));
+      cards.appendChild(card);
+
+      var dot = el('button', 'cg-dot');
+      dot.type = 'button';
+      dot.setAttribute('aria-label', INFO_CARDS[i].title);
+      dot.addEventListener('click', (function (n) {
+        return function () { cards.scrollTo({ left: n * cards.clientWidth, behavior: 'smooth' }); };
+      })(i));
+      dots.appendChild(dot);
+      dotList.push(dot);
+    }
+
+    function sync() {
+      var w = cards.clientWidth || 1;
+      var at = Math.round(cards.scrollLeft / w);
+      for (var i = 0; i < dotList.length; i++) {
+        dotList[i].setAttribute('aria-current', i === at ? 'true' : 'false');
+      }
+    }
+    cards.addEventListener('scroll', sync);
+    s.inner.appendChild(cards);
+    s.inner.appendChild(dots);
+    sync();
+    return s.section;
+  }
+
+  // ------------------------------------------------------ 마음 전하실 곳 ---
+
+  // Clipboard, with the pre-async-API path still there: an in-app browser
+  // (KakaoTalk's, which is how most guests arrive) can be missing
+  // navigator.clipboard, and copying an account number is the whole point of
+  // the button.
+  function copyText(text, done, fail) {
+    var fallback = function () {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      var okay = false;
+      try { okay = document.execCommand('copy'); } catch (e) { okay = false; }
+      document.body.removeChild(ta);
+      (okay ? done : fail)();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else fallback();
+  }
+
+  // Flash a confirmation on the button that was pressed, then put its label back.
+  function flash(btn, message) {
+    if (btn._cgTimer) clearTimeout(btn._cgTimer);
+    if (btn._cgLabel == null) btn._cgLabel = btn.textContent;
+    btn.textContent = message;
+    btn._cgTimer = setTimeout(function () {
+      btn.textContent = btn._cgLabel;
+      btn._cgTimer = null;
+    }, 1800);
+  }
+
+  function buildHeart() {
+    var s = section(HEART.title, true, true);
+    s.inner.appendChild(lines(el('div', 'cg-body cg-heart-desc'), HEART.desc));
+
+    var box = el('div', 'cg-accs');
+    for (var i = 0; i < HEART.groups.length; i++) {
+      var g = HEART.groups[i];
+      var acc = el('div', 'cg-acc');
+      acc.setAttribute('aria-expanded', 'false');
+
+      var head = el('button', 'cg-acc-head');
+      head.type = 'button';
+      head.appendChild(el('span', null, g.label));
+      var hint = el('span', 'cg-acc-hint', '▼ 펼치기');
+      head.appendChild(hint);
+
+      var body = el('div', 'cg-acc-body');
+      for (var r = 0; r < g.rows.length; r++) {
+        var row = el('div', 'cg-acc-row');
+        var who = g.rows[r].who, bank = g.rows[r].bank, account = g.rows[r].account;
+        var text = el('div', 'cg-acc-text');
+        text.appendChild(el('p', 'cg-acc-who', who));
+        text.appendChild(el('p', 'cg-acc-val', bank + ' ' + account));
+        row.appendChild(text);
+        var copy = el('button', 'cg-acc-copy', '복사');
+        copy.type = 'button';
+        copy.setAttribute('aria-label', who + ' ' + bank + ' 계좌번호 복사');
+        copy.addEventListener('click', (function (account, btn) {
+          return function () {
+            copyText(
+              account,
+              function () { flash(btn, '복사됨'); },
+              function () { flash(btn, '복사 실패'); }
+            );
+          };
+        })(account, copy));
+        row.appendChild(copy);
+        body.appendChild(row);
+      }
+
+      head.addEventListener('click', (function (acc, hint) {
+        return function () {
+          var open = acc.getAttribute('aria-expanded') === 'true';
+          acc.setAttribute('aria-expanded', open ? 'false' : 'true');
+          hint.textContent = open ? '▼ 펼치기' : '▲ 접기';
+        };
+      })(acc, hint));
+
+      acc.appendChild(head);
+      acc.appendChild(body);
+      box.appendChild(acc);
+    }
+    s.inner.appendChild(box);
+    return s.section;
+  }
+
+  // ------------------------------------------------------------------ rsvp ---
+
+  function buildRsvp() {
+    var s = section('RSVP', false);
+    s.inner.appendChild(el('p', 'cg-sub', '결혼식 참석 여부를 알려주세요'));
+
+    var form = document.createElement('form');
+    form.className = 'cg-form';
+    form.noValidate = true;
+    var picked = {};
+
+    for (var i = 0; i < RSVP_FIELDS.length; i++) {
+      var f = RSVP_FIELDS[i];
+      var field = el('div', 'cg-field');
+      field.appendChild(el('p', 'cg-field-label', f.label));
+      var opts = el('div', 'cg-opts cg-opts--' + f.cols);
+      opts.setAttribute('role', 'radiogroup');
+      for (var o = 0; o < f.options.length; o++) {
+        var btn = el('button', 'cg-opt', f.options[o][0]);
+        btn.type = 'button';
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-checked', 'false');
+        btn.dataset.value = f.options[o][1];
+        btn.addEventListener('click', (function (key, group, self) {
+          return function () {
+            var all = group.getElementsByClassName('cg-opt');
+            for (var n = 0; n < all.length; n++) all[n].setAttribute('aria-checked', 'false');
+            self.setAttribute('aria-checked', 'true');
+            picked[key] = self.dataset.value;
+          };
+        })(f.key, opts, btn));
+        opts.appendChild(btn);
+      }
+      field.appendChild(opts);
+      form.appendChild(field);
+    }
+
+    var nameField = el('div', 'cg-field');
+    nameField.appendChild(el('p', 'cg-field-label', '성함'));
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'cg-input';
+    input.autocomplete = 'name';
+    input.placeholder = '';
+    nameField.appendChild(input);
+    form.appendChild(nameField);
+
+    var submit = el('button', 'cg-submit', '제출');
+    submit.type = 'submit';
+    form.appendChild(submit);
+    var msg = el('p', 'cg-msg');
+    msg.setAttribute('aria-live', 'polite');
+    form.appendChild(msg);
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var data = { name: input.value.trim() };
+      for (var k in picked) if (Object.prototype.hasOwnProperty.call(picked, k)) data[k] = picked[k];
+      if (!data.name) { msg.textContent = '성함을 입력해 주세요.'; input.focus(); return; }
+      if (!data.attend) { msg.textContent = '참석 여부를 선택해 주세요.'; return; }
+
+      submit.disabled = true;
+      msg.textContent = '전송 중...';
+      // Opaque by design: the Apps Script web app answers with a redirect that
+      // no-cors cannot read, so a resolved fetch is the only signal there is.
+      fetch(RSVP_ENDPOINT, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(data)
+      }).then(function () {
+        var done = el('p', 'cg-done', '참석여부가 전달되었습니다. 감사합니다 :)');
+        form.parentNode.replaceChild(done, form);
+      }).catch(function () {
+        submit.disabled = false;
+        msg.textContent = '전송에 실패했어요. 잠시 후 다시 시도해 주세요.';
+      });
+    });
+
+    s.inner.appendChild(form);
+    return s.section;
+  }
+
+  function buildShare() {
+    var wrap = el('div', 'cg-share');
+    var inner = el('div', 'cg-in');
+    var btn = el('button', 'cg-share-btn', '공유하기 (링크 복사)');
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      copyText(
+        location.href,
+        function () { flash(btn, '링크가 복사되었습니다'); },
+        function () { flash(btn, '복사 실패 — 주소창을 길게 눌러 복사해 주세요'); }
+      );
+    });
+    inner.appendChild(btn);
+    wrap.appendChild(inner);
+    return wrap;
+  }
+
+  function buildFooter() {
+    var foot = el('div', 'cg-foot');
+    foot.style.backgroundImage = "url('" + FOOTER.bg + "')";
+    foot.appendChild(el('p', 'cg-foot-love', FOOTER.love));
+    foot.appendChild(el('p', 'cg-foot-names', FOOTER.names));
+    var link = el('a', 'cg-foot-link', FOOTER.linkText);
+    link.href = './';
+    foot.appendChild(link);
+    return foot;
+  }
+
+  var content = null;
+
+  function buildContent() {
+    var root = el('div', 'cg-doc');
+    root.id = ROOT_ID;
+    root.appendChild(buildInvitation());
+    root.appendChild(buildWeddingDay());
+    root.appendChild(buildGallery());
+    root.appendChild(buildLocation());
+    root.appendChild(buildInformation());
+    root.appendChild(buildHeart());
+    root.appendChild(buildRsvp());
+    root.appendChild(buildShare());
+    root.appendChild(buildFooter());
+    return root;
+  }
+
+  // ------------------------------------------------------------------ mount ---
+
+  function run() {
+    var parts = heroParts();
+    if (!parts) return;          // the cover and the RSVP page have no
+                                 // Invitation heading, so they are left alone
+    document.documentElement.classList.add('cg-relayout-on');
+    trimCanva(parts);
+    silenceHiddenFrames();
+
+    var scroller = document.getElementsByClassName('ZRRuDw')[0];
+    if (!scroller) return;
+    if (!content) content = buildContent();
+    // Re-append if the runtime's re-render ever detaches it, and keep it last
+    // so it always follows the envelope.
+    if (content.parentNode !== scroller || scroller.lastElementChild !== content) {
+      scroller.appendChild(content);
+    }
+  }
+
+  // The runtime mounts and restyles in bursts, and each pass here reads layout,
+  // so passes are collapsed onto one animation frame rather than run per
+  // mutation.
+  var queued = false;
+  function schedule() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(function () {
+      queued = false;
+      run();
+    });
+  }
+
+  run();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
+  // The runtime mounts sections asynchronously and rewrites their inline styles
+  // on every resize, so the classification is re-run rather than done once.
+  // Styles are watched because the hero's height is derived from them; the
+  // module writes no inline style onto a Canva element, so this cannot loop.
+  new MutationObserver(schedule).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style']
+  });
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', schedule);
+})();

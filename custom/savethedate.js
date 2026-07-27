@@ -84,6 +84,13 @@
         var el = stack[m];
         if (el.hasAttribute && el.hasAttribute(MARK)) continue;         // never our own line
         if (el.closest && el.closest('[' + MARK + ']')) continue;
+        // The record's control lives in the overlay layer that is anchored to
+        // the bottom of the envelope's section, and relayout.js clips that
+        // section to where the artwork ends. So the control's centre point can
+        // fall on a part of the rebuilt page below instead, and every narrow
+        // thing there -- a calendar cell, a carousel dot, an arrow -- would be
+        // hidden by the sweep below. The rebuilt page is never the record.
+        if (el.closest && el.closest('#cg-relayout')) continue;
         var w = el.getBoundingClientRect().width;
         if (w > 0 && w < 110 && el.tagName !== 'BODY' && el.tagName !== 'HTML') {
           el.style.setProperty('display', 'none', 'important');
@@ -102,9 +109,16 @@
           stdCanvas = canvas;
           // the record's centre, nudged up/left to where the client's own page
           // puts the "Save the Date" (matched against a screenshot of it).
+          // The vertical nudge was tuned to 1.30% of this canvas's height back
+          // when invitation.js grew the canvas to fit the greeting it swapped
+          // in. relayout.js replaced that section, so the canvas is ~128px
+          // shorter (at 390 wide) and the same percentage would drop the line
+          // 1.7px. 1.470% of the canvas as it stands now is the same offset in
+          // pixels -- within 0.15px at 320, 390 and 430 -- so the line stays
+          // exactly where it was placed by hand.
           stdPct = {
             x: +((((dr.left + dr.width / 2) - cr.left) / cr.width * 100) - 1.4).toFixed(3),
-            y: +((((dr.top + dr.height / 2) - cr.top) / cr.height * 100) - 1.30).toFixed(3)
+            y: +((((dr.top + dr.height / 2) - cr.top) / cr.height * 100) - 1.470).toFixed(3)
           };
         }
       }

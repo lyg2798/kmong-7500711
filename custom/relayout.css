@@ -1,0 +1,523 @@
+/*
+ * Re-lays out the main page below the envelope.
+ *
+ * The envelope (the first section's artwork) stays exactly as Canva renders it.
+ * Everything Canva drew underneath it -- Invitation, Wedding Day, Location,
+ * Gallery, Information, 마음 전하실 곳, footer -- is hidden, and relayout.js
+ * builds those sections again in ordinary document flow using the layout of
+ * anniversarymovie.kr/view/template02 and this invitation's own words.
+ *
+ * Two rules do the hiding, and both are deliberately CSS rather than JS:
+ *
+ *  - `[data-cg-hidden]{display:none!important}`. Canva's runtime rewrites the
+ *    inline style of everything it owns on every resize, so a JS module that
+ *    sets `style.display` has to keep winning a race it re-runs forever. An
+ *    !important stylesheet rule beats an inline style that has no !important
+ *    of its own, so the runtime can rewrite as often as it likes. JS only
+ *    decides *which* nodes carry the attribute.
+ *  - the hero's height comes from `--cg-hero-h`, which relayout.js measures.
+ *    The height is applied to the <section> alone and the section clips
+ *    (`overflow:hidden`); the canvas inside keeps the full height Canva gave
+ *    it. That matters because savethedate.js places "Save the Date" as a
+ *    percentage of the canvas box -- shrinking the canvas would have moved a
+ *    line whose position was tuned by hand.
+ */
+
+/* Canva's own fonts, addressed directly rather than through the runtime's
+ * generated family names (which it injects at some point during boot).
+ *  - cgSerif: the Latin display serif the design uses for every section
+ *    heading and for "2026.10.11" on the envelope. 945 glyphs, no Hangul.
+ *  - cgKor: the design's Korean face. Full 11,172-syllable coverage, so new
+ *    Korean copy (weekday initials, "결혼식이 N일 남았습니다", 신랑측/신부측,
+ *    button labels) renders in it instead of falling back to a system font.
+ * url() in a stylesheet resolves against the stylesheet, not <base>, hence "..".
+ */
+@font-face {
+  font-family: cgSerif;
+  src: url('../_assets/fonts/a445cd2ddaf7372e3304bd6a0e770a29.woff') format('woff');
+  font-display: swap;
+}
+@font-face {
+  font-family: cgKor;
+  src: url('../_assets/fonts/77776149834fe029348b3515f8e668ea.woff') format('woff');
+  font-display: swap;
+}
+
+[data-cg-hidden] { display: none !important; }
+
+/* The record player is gone from the envelope -- the music runs from its own
+ * <audio> and there is no manual stop -- but the runtime still keeps the video
+ * node it was built from, and still draws that node's playback control in the
+ * overlay layer, 24x24 at the record's old spot, i.e. on top of "Save the Date".
+ * It sits at opacity 0 and fades in under the pointer, so it is invisible on a
+ * phone and shows up as a stray ▐▐ on a desktop. Both go.
+ *
+ * The control layer is removed outright: it exists only to control video, and
+ * the envelope's only video is the silent one. The node itself is only made
+ * *invisible* -- opacity, not display -- on purpose. bgm.js mirrors that
+ * element's pause events onto the music (and ignores the ones the runtime fires
+ * when a section scrolls out of view), so taking it out of the layout could
+ * change which pauses it sees. Opacity changes nothing about playback,
+ * intersection or layout, and no descendant can re-declare it away.
+ */
+.cg-relayout-on [data-cg-hero] .QhExXw { display: none !important; }
+[data-cg-silent] { opacity: 0 !important; pointer-events: none !important; }
+
+/* The page column stops carrying the height of the sections we hid. Its wrapper
+ * is sized to the viewport (`height:100%` inline, and it stretches the column to
+ * match), which would leave a screen-tall blank between the envelope and the
+ * rebuilt content, so both are released to their content height. */
+.cg-relayout-on .ZRRuDw > div:not(#cg-relayout),
+.cg-relayout-on .KYQZFA {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.cg-relayout-on [data-cg-hero] {
+  height: var(--cg-hero-h) !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+}
+
+/* ---------------------------------------------------------------- tokens --- */
+
+.cg-doc {
+  /* The two bands the invitation already alternates between, so the new
+   * sections sit in the same light as the envelope above them. */
+  --cg-bg: rgb(255, 250, 244);
+  --cg-bg-alt: rgb(251, 247, 238);
+  --cg-card: rgb(251, 247, 238);
+  --cg-card-alt: rgb(255, 252, 247);
+  /* the design's one ink colour */
+  --cg-ink: rgb(120, 105, 56);
+  --cg-ink-soft: rgba(120, 105, 56, 0.82);
+  --cg-ink-mute: rgba(120, 105, 56, 0.58);
+  --cg-line: rgba(120, 105, 56, 0.16);
+  --cg-accent: rgb(198, 178, 145);
+  --cg-sun: rgb(186, 118, 94);
+  --cg-pad: 20px;
+
+  width: 100%;
+  background: var(--cg-bg);
+  font-family: cgKor, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  color: var(--cg-ink);
+  -webkit-text-size-adjust: 100%;
+  text-align: center;
+}
+.cg-doc *,
+.cg-doc *::before,
+.cg-doc *::after { box-sizing: border-box; }
+
+.cg-doc p { margin: 0; }
+
+.cg-sec {
+  background: var(--cg-bg);
+  padding: 76px var(--cg-pad) 80px;
+}
+.cg-sec--alt { background: var(--cg-bg-alt); }
+.cg-in { max-width: 560px; margin: 0 auto; }
+
+/* Section headings are the design's Latin serif in small-caps spacing, the
+ * same treatment the hidden Canva headings used. */
+.cg-h {
+  font-family: cgSerif, 'Times New Roman', serif;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  margin: 0;
+  color: var(--cg-ink);
+}
+.cg-h-kr {
+  font-family: cgKor, sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--cg-ink);
+}
+
+.cg-body { font-size: 13.5px; line-height: 2.05; color: var(--cg-ink-soft); word-break: keep-all; }
+.cg-mute { color: var(--cg-ink-mute); }
+
+/* ------------------------------------------------------------ invitation --- */
+
+.cg-quote { margin-top: 44px; }
+/* The quote is written one thought per line and reads best that way, so the
+ * size follows the viewport far enough to keep the longest line intact on a
+ * 390-wide phone. Below that it wraps at a space rather than shrinking further. */
+.cg-quote p {
+  font-size: 13px;
+  font-size: clamp(11px, 3.45vw, 13px);
+  line-height: 2.15;
+  color: var(--cg-ink-soft);
+  word-break: keep-all;
+}
+.cg-quote .cg-cite { margin-top: 10px; font-size: 12.5px; color: var(--cg-ink-mute); }
+.cg-greet { margin-top: 36px; }
+.cg-greet p { font-size: 13.5px; line-height: 2.1; color: var(--cg-ink-soft); word-break: keep-all; }
+
+.cg-parents { margin-top: 48px; display: flex; flex-direction: column; gap: 14px; }
+.cg-doc .cg-parent { font-size: 15px; line-height: 1.4; color: var(--cg-ink); }
+.cg-parent .cg-rel { font-size: 12.5px; color: var(--cg-ink-mute); margin: 0 5px; }
+.cg-parent .cg-child { font-weight: 700; }
+
+/* ----------------------------------------------------------- wedding day --- */
+
+.cg-doc .cg-date { margin-top: 30px; font-size: 16px; letter-spacing: 0.01em; color: var(--cg-ink); }
+.cg-doc .cg-month {
+  margin-top: 38px;
+  font-family: cgSerif, serif;
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  color: var(--cg-ink);
+}
+
+.cg-cal { margin: 22px auto 0; max-width: 360px; }
+.cg-cal-row { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cg-cal-head { font-family: cgSerif, serif; font-size: 13px; letter-spacing: 0.06em; color: var(--cg-ink-mute); padding-bottom: 12px; }
+.cg-cal-head span:first-child { color: var(--cg-sun); }
+.cg-cal-cell {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: cgSerif, serif;
+  font-size: 15px;
+  color: var(--cg-ink-soft);
+}
+.cg-cal-cell.cg-sunday { color: var(--cg-sun); }
+.cg-cal-cell .cg-mark {
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  border-radius: 50%;
+  background: var(--cg-accent);
+  color: #fffdf8;
+}
+
+.cg-rule { margin-top: 24px; height: 1px; background: var(--cg-line); }
+.cg-doc .cg-dday { margin-top: 26px; font-size: 14px; color: var(--cg-ink-soft); }
+.cg-dday b { font-weight: 700; color: var(--cg-ink); }
+
+/* --------------------------------------------------------------- gallery --- */
+
+/* The photos are 2:3 and the thumbnails are cropped to 3:4. The ratio is held
+ * with padding rather than `aspect-ratio` on purpose: a guest on an older phone
+ * that does not know the property would get a zero-height gallery, and this
+ * technique is understood everywhere. */
+.cg-photo {
+  position: relative;
+  margin-top: 40px;
+  width: 100%;
+  height: 0;
+  padding-bottom: 150%;
+  background: var(--cg-card);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.cg-photo img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cg-strip { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+.cg-strip-track {
+  flex: 1 1 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 24px) / 4);
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.cg-strip-track::-webkit-scrollbar { display: none; }
+.cg-thumb {
+  position: relative;
+  scroll-snap-align: start;
+  height: 0;
+  padding: 0 0 133.333%;
+  overflow: hidden;
+  border: 0;
+  background: var(--cg-card);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.18s;
+}
+.cg-thumb img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cg-thumb[aria-current='true'] { opacity: 1; outline: 2px solid var(--cg-accent); outline-offset: -2px; }
+
+.cg-arrow {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 40px;
+  border: 0;
+  background: none;
+  color: var(--cg-ink-mute);
+  font-family: cgSerif, serif;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.cg-arrow:disabled { opacity: 0.25; }
+
+.cg-lb {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 9999;
+  background: rgba(28, 24, 16, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+}
+.cg-lb img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.cg-lb-btn {
+  position: absolute;
+  border: 0;
+  background: none;
+  color: rgba(255, 250, 244, 0.85);
+  font-family: cgSerif, serif;
+  font-size: 30px;
+  line-height: 1;
+  padding: 16px;
+  cursor: pointer;
+}
+.cg-lb-prev { left: 2px; top: 50%; transform: translateY(-50%); }
+.cg-lb-next { right: 2px; top: 50%; transform: translateY(-50%); }
+.cg-lb-close { top: 6px; right: 8px; font-size: 26px; }
+.cg-lb-count {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: cgSerif, serif;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 250, 244, 0.7);
+}
+
+/* -------------------------------------------------------------- location --- */
+
+.cg-doc .cg-venue { margin-top: 34px; font-size: 20px; font-weight: 700; line-height: 1.45; }
+.cg-doc .cg-hall { margin-top: 10px; font-size: 16px; font-weight: 700; color: var(--cg-ink-soft); }
+.cg-doc .cg-addr { margin-top: 10px; font-size: 13.5px; color: var(--cg-ink-mute); }
+
+.cg-map { margin-top: 26px; width: 100%; height: 250px; overflow: hidden; background: var(--cg-card); }
+.cg-map iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+.cg-ways { margin-top: 34px; text-align: left; display: flex; flex-direction: column; gap: 24px; }
+.cg-doc .cg-way-label { font-size: 15px; font-weight: 700; color: var(--cg-ink); }
+.cg-way-body { margin-top: 8px; font-size: 13.5px; line-height: 1.95; color: var(--cg-ink-soft); word-break: keep-all; }
+
+.cg-maplinks { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cg-maplink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  background: var(--cg-card);
+  color: var(--cg-ink-soft);
+  font-size: 14px;
+  text-decoration: none;
+}
+.cg-sec--alt .cg-maplink,
+.cg-sec--alt .cg-acc,
+.cg-sec--alt .cg-card { background: var(--cg-card-alt); }
+
+/* ----------------------------------------------------------- information --- */
+
+.cg-cards {
+  margin-top: 36px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.cg-cards::-webkit-scrollbar { display: none; }
+/* Both cards share one grid row, so the shorter one is as tall as the longer
+ * one; centring its contents keeps the slack off the bottom edge. Equal heights
+ * are what stop the section from jumping height as the cards are swiped. */
+.cg-card {
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--cg-card);
+  border-radius: 14px;
+  padding: 40px 22px;
+  min-height: 220px;
+}
+.cg-doc .cg-card-title { font-size: 19px; font-weight: 700; }
+.cg-card-body { margin-top: 20px; font-size: 13.5px; line-height: 2.1; color: var(--cg-ink-soft); word-break: keep-all; }
+
+.cg-dots { margin-top: 20px; display: flex; justify-content: center; gap: 8px; }
+.cg-dot { width: 7px; height: 7px; border-radius: 50%; border: 0; padding: 0; background: var(--cg-line); cursor: pointer; }
+.cg-dot[aria-current='true'] { background: var(--cg-accent); }
+
+/* -------------------------------------------------------- 마음 전하실 곳 --- */
+
+.cg-heart-desc { margin-top: 20px; }
+.cg-accs { margin-top: 34px; display: flex; flex-direction: column; gap: 10px; }
+.cg-acc { background: var(--cg-card); }
+.cg-acc-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 20px 20px;
+  border: 0;
+  background: none;
+  color: var(--cg-ink);
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.cg-acc-hint { font-size: 12.5px; color: var(--cg-ink-mute); white-space: nowrap; }
+.cg-acc-body { display: none; padding: 0 20px 20px; text-align: left; }
+.cg-acc[aria-expanded='true'] .cg-acc-body { display: block; }
+.cg-acc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid var(--cg-line);
+}
+.cg-acc-text { min-width: 0; }
+.cg-doc .cg-acc-who { font-size: 12.5px; color: var(--cg-ink-mute); }
+.cg-doc .cg-acc-val { margin-top: 4px; font-size: 14px; color: var(--cg-ink); word-break: break-all; }
+.cg-acc-copy {
+  flex: 0 0 auto;
+  padding: 8px 13px;
+  border: 1px solid var(--cg-line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cg-ink-mute);
+  font-family: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ rsvp --- */
+
+.cg-doc .cg-sub { margin-top: 16px; font-size: 14px; color: var(--cg-ink-mute); }
+.cg-form { margin-top: 36px; text-align: left; display: flex; flex-direction: column; gap: 22px; }
+.cg-doc .cg-field-label { font-size: 13px; color: var(--cg-ink-mute); }
+.cg-opts { margin-top: 9px; display: grid; gap: 8px; }
+.cg-opts--2 { grid-template-columns: 1fr 1fr; }
+.cg-opts--3 { grid-template-columns: 1fr 1fr 1fr; }
+.cg-opt {
+  height: 46px;
+  border: 1px solid transparent;
+  background: var(--cg-card);
+  color: var(--cg-ink-mute);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background 0.15s, color 0.15s;
+}
+.cg-opt[aria-checked='true'] { background: var(--cg-accent); color: #fffdf8; }
+.cg-input {
+  margin-top: 9px;
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--cg-line);
+  background: #fffdf9;
+  color: var(--cg-ink);
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+}
+.cg-input:focus { border-color: var(--cg-accent); }
+.cg-submit {
+  margin-top: 12px;
+  height: 50px;
+  border: 0;
+  border-radius: 25px;
+  background: var(--cg-accent);
+  color: #fffdf8;
+  font-family: inherit;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.cg-submit:disabled { opacity: 0.55; }
+.cg-doc .cg-msg { min-height: 18px; font-size: 12.5px; color: var(--cg-ink-mute); text-align: center; }
+.cg-doc .cg-done { margin-top: 36px; font-size: 15px; line-height: 1.9; color: var(--cg-ink-soft); }
+
+.cg-share { background: var(--cg-bg); padding: 8px var(--cg-pad) 80px; }
+.cg-share-btn {
+  width: 100%;
+  height: 52px;
+  border: 0;
+  background: var(--cg-card);
+  color: var(--cg-ink);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- footer --- */
+
+.cg-foot {
+  position: relative;
+  padding: 58px var(--cg-pad) 62px;
+  background-position: center;
+  background-size: cover;
+  color: rgb(255, 250, 244);
+  overflow: hidden;
+}
+/* The photo behind the closing lines is nearly white, so the wash carries the
+ * contrast for the cream text on top of it. */
+.cg-foot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(84, 72, 48, 0.46);
+}
+.cg-foot > * { position: relative; }
+.cg-doc .cg-foot-love { font-family: cgSerif, serif; font-size: 12px; letter-spacing: 0.28em; text-transform: uppercase; opacity: 0.9; }
+.cg-doc .cg-foot-names { margin-top: 22px; font-family: cgSerif, serif; font-size: 26px; letter-spacing: 0.04em; }
+.cg-foot-link {
+  display: inline-block;
+  margin-top: 26px;
+  font-family: cgSerif, serif;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 250, 244, 0.92);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}

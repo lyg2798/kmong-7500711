@@ -1,3 +1,9 @@
+/* NO LONGER LOADED. Centred three text blocks in the Location / Information / 마음 전하실 곳 sections.
+ * The three HTML documents stopped including this file when custom/relayout.js
+ * replaced the page below the envelope: everything it corrected lives in the
+ * Canva sections that are now hidden. Kept so that restoring the old layout is
+ * a matter of restoring the tags, not recovering files. See README.md. */
+
 /*
  * Corrects horizontal centering on a handful of main-page text blocks that
  * are off-center in the original Canva design itself (confirmed live on the
