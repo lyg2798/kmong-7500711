@@ -93,9 +93,15 @@
   // origin registered there. So moving this invitation to another domain means
   // adding that domain, and it also means nobody else can spend this quota.
   //
+  // This key is the "kmong-7500711" JavaScript key of app 1467642
+  // (jqerin-mobile-invitation), registered for https://lyg2798.github.io. It
+  // lives in that app rather than one of its own because Kakao only grants the
+  // free map quota to the first app a developer account activates, and that
+  // app already held it. Quota is counted per app, not per key.
+  //
   // If this is ever emptied, or the key is refused, the section falls back to
   // the embed it carried before rather than showing a blank box.
-  var KAKAO_JS_KEY = '85d0dd415bfebccfe80d4aac439d40bc';
+  var KAKAO_JS_KEY = 'b4ffe3638aea0a379080b34510538b01';
   var MAP_LEVEL = 4;   // Kakao zoom: lower is closer; 4 shows about two blocks
   var MAP_FALLBACK_SRC =
     'https://maps.google.com/maps?q=JW%20%EB%A7%88%EB%A6%AC%EC%98%A4%ED%8A%B8%20%EB%8F%99%EB%8C%80%EB%AC%B8%20%EC%8A%A4%ED%80%98%EC%96%B4%20%EC%84%9C%EC%9A%B8&z=17&output=embed';
