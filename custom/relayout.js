@@ -122,22 +122,17 @@
     { label: '주차', lines: ['지하 주차장 이용가능(4시간 무료)'] }
   ];
 
-  // The three ways out of the map, as one card of three cells. `tone` (or
-  // `tones` for a gradient) is the service's own colour, which is what makes
-  // the row readable at a glance -- see pinSvg().
+  // The three ways out of the map, as one card of three cells.
   var MAP_APPS = [
     {
       name: '네이버지도',
-      tone: '#03C75A',
       url: function () { return 'https://map.naver.com/p/search/' + encodeURIComponent(MAP_QUERY); }
     },
     {
       name: '카카오맵',
-      tone: '#FEE500',
-      edge: '#E3BE00',
       url: function () { return 'https://map.kakao.com/?q=' + encodeURIComponent(MAP_QUERY); }
     },
-    { name: '티맵', tones: ['#E5007E', '#00A9E0'], drive: true }
+    { name: '티맵', drive: true }
   ];
 
   var INFO_CARDS = [
@@ -595,46 +590,19 @@
       if (app.drive) {
         // a button rather than a link: which URL opens T map is decided per
         // platform, and on iOS it needs a timer behind it
-        cell = el('button', 'cg-maplink');
+        cell = el('button', 'cg-maplink', app.name);
         cell.type = 'button';
         cell.addEventListener('click', openTmap);
       } else {
-        cell = el('a', 'cg-maplink');
+        cell = el('a', 'cg-maplink', app.name);
         cell.href = app.url();
         cell.target = '_blank';
         cell.rel = 'noopener';
       }
-      var icon = el('span', 'cg-maplink-ic');
-      icon.innerHTML = pinSvg(a, app);
-      cell.appendChild(icon);
-      cell.appendChild(el('span', 'cg-maplink-t', app.name));
       links.appendChild(cell);
     }
     s.inner.appendChild(links);
     return s.section;
-  }
-
-  // A plain map pin, drawn here, tinted with each service's own colour. The
-  // colour is what tells the three apart at a glance; the shape is deliberately
-  // generic rather than a copy of anyone's app icon. To use the official icons
-  // instead, put the files in _assets and swap this for an <img>.
-  var PIN_PATH = 'M12 2.2c-3.87 0-7 3.13-7 7 0 5.25 7 12.6 7 12.6s7-7.35 7-12.6c0-3.87-3.13-7-7-7z';
-
-  function pinSvg(i, app) {
-    var id = 'cg-pin-' + i;
-    var defs = '';
-    var fill = app.tone;
-    if (app.tones) {
-      fill = 'url(#' + id + ')';
-      defs = '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="1">' +
-        '<stop offset="0" stop-color="' + app.tones[0] + '"/>' +
-        '<stop offset="1" stop-color="' + app.tones[1] + '"/></linearGradient></defs>';
-    }
-    return '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false">' +
-      defs + '<path d="' + PIN_PATH + '" fill="' + fill + '"' +
-      // a pale pin needs an edge of its own or it dissolves into the card
-      (app.edge ? ' stroke="' + app.edge + '" stroke-width="0.9"' : '') +
-      '/><circle cx="12" cy="9.2" r="2.6" fill="#fff"/></svg>';
   }
 
   function openTmap() {

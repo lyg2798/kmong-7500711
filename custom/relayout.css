@@ -379,17 +379,16 @@
 }
 .cg-maplink {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 17px 4px 15px;
+  height: 54px;
+  padding: 0 4px;
   border: 0;                 /* 티맵 is a <button>: it opens an app, not a URL */
   border-radius: 0;
   background: transparent;
   color: var(--cg-ink-soft);
   font-family: inherit;
-  font-size: 13px;
-  line-height: 1;
+  font-size: 14px;
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
@@ -399,10 +398,6 @@
 /* the rule is drawn inside the cell so it cannot widen the column, and only
  * between cells, never at the card's own edges */
 .cg-maplink + .cg-maplink { box-shadow: inset 1px 0 0 var(--cg-line); }
-.cg-maplink-ic { display: block; height: 26px; }
-.cg-maplink-ic svg { display: block; }
-/* margin rather than flex `gap`, which older in-app WebViews do not lay out */
-.cg-maplink-t { margin-top: 9px; }
 
 .cg-sec--alt .cg-maplinks,
 .cg-sec--alt .cg-acc,
