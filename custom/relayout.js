@@ -72,12 +72,14 @@
   var HALL = '그랜드볼룸';
   var ADDRESS = '서울 종로구 청계천로 279';
   var MAP_QUERY = 'JW 메리어트 동대문 스퀘어 서울';
-  // WGS84, the hotel building itself -- OpenStreetMap way 358098017, which is
-  // what 서울 종로구 청계천로 279 geocodes to. Kakao, Naver and T map all take
-  // plain WGS84, so this one pair serves the map, the deep links and the
+  // WGS84. This is Kakao's own point for the place ("JW 메리어트 동대문 스퀘어
+  // 서울", 청계천로 279), read from its Places search rather than geocoded here,
+  // so the marker lands exactly where Kakao itself draws the hotel and T map is
+  // given the address the hotel is represented by. Kakao, Naver and T map all
+  // take plain WGS84, so this one pair serves the map, the deep links and the
   // navigation hand-off alike.
-  var VENUE_LAT = 37.5703683;
-  var VENUE_LNG = 127.0088222;
+  var VENUE_LAT = 37.5702334;
+  var VENUE_LNG = 127.0087478;
 
   // Kakao Maps JavaScript key: Kakao Developers > 내 애플리케이션 > 앱 키 >
   // JavaScript 키, with this site's origin (https://lyg2798.github.io) added
