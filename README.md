@@ -116,15 +116,31 @@ Date" 위)** 에 계속 그립니다. 평소 `opacity:0`이라 폰에서는 안 
 > 손으로 발급받는 key가 필요한 데다 `document.write` 기반이라 로드 후 주입하는 이 구조에서는
 > 쓸 수 없습니다. 남는 것은 **카카오맵 JavaScript SDK + 앱 키**뿐입니다.
 
-**JQ님이 해야 할 한 가지**: [Kakao Developers](https://developers.kakao.com) → 앱 생성 →
-**카카오맵 API 활성화** → **앱 키 > JavaScript 키** 복사 → **플랫폼 > Web 에
-`https://lyg2798.github.io` 등록**. 그 키를 `custom/relayout.js`의 **`KAKAO_JS_KEY`** 한 줄에
-넣으면 끝입니다. 개발자 계정의 첫 앱은 무료 쿼터를 받으므로 비즈월렛(결제수단) 연결은
-필요 없습니다. **나중에 클라이언트 도메인으로 옮기면 그 도메인도 플랫폼에 추가해야 합니다.**
+키는 `custom/relayout.js`의 **`KAKAO_JS_KEY`**에 들어가 있습니다
+(`85d0dd41…`). **JavaScript 키는 원래 공개됩니다** — 지도를 그리는 모든 페이지의 스크립트
+URL에 실려 나가므로 정적 사이트에서는 숨길 방법이 없습니다. 키를 지키는 것은 콘솔의
+**도메인 목록**입니다: 거기 등록된 origin에서만 응답합니다.
 
-`KAKAO_JS_KEY`가 비어 있는 동안에는 **기존 구글 임베드가 그대로 뜹니다** — 키가 없다고 지도
-자리가 비지는 않습니다. 키가 틀리거나 도메인이 등록되지 않아 SDK가 401로 떨어질 때도 같은
-임베드로 되돌아갑니다(스크립트 `onerror`). 즉 **키 한 줄이 유일한 스위치**입니다.
+> **남은 한 가지 — 플랫폼에 도메인 등록.**
+> Kakao Developers → 내 애플리케이션 → 앱 → **앱 설정 > 플랫폼 > Web > 사이트 도메인**에
+> **`https://lyg2798.github.io`** 를 등록해야 합니다. 등록 전에는 SDK가 이렇게 답합니다:
+> ```
+> {"errorType":"AccessDeniedError",
+>  "message":"domain mismatched! caller=https://lyg2798.github.io. check out registered web domains."}
+> ```
+> (키 자체가 틀리면 대신 `appKey(…) does not exist`가 옵니다. 즉 위 메시지는 **키는 맞고
+> 도메인만 안 걸렸다**는 뜻입니다.) 확인은 이 한 줄로 됩니다:
+> ```
+> curl -s -H "Referer: https://lyg2798.github.io/kmong-7500711/main-page" \
+>   "https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey=<키>" | head -c 200
+> ```
+> 자바스크립트 코드가 돌아오면 통과입니다. **등록만 하면 재배포 없이 바로 카카오맵으로 바뀝니다.**
+> 앱에 **카카오맵 API 활성화**도 켜져 있어야 합니다. 개발자 계정의 첫 앱은 무료 쿼터라
+> 비즈월렛(결제수단) 연결은 필요 없습니다.
+> **나중에 클라이언트 도메인으로 옮기면 그 도메인도 같은 목록에 추가해야 합니다.**
+
+그 전까지는 **기존 구글 임베드가 그대로 뜹니다** — 키가 거부돼도 지도 자리가 비지는 않습니다
+(스크립트 `onerror` → `fallbackMap()`).
 
 지도 동작:
 - 좌표는 `VENUE_LAT` / `VENUE_LNG` = `37.5703683, 127.0088222` (WGS84, 청계천로 279가 가리키는
