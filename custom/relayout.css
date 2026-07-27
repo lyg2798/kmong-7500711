@@ -323,15 +323,20 @@
 .cg-doc .cg-hall { margin-top: 10px; font-size: 16px; font-weight: 700; color: var(--cg-ink-soft); }
 .cg-doc .cg-addr { margin-top: 10px; font-size: 13.5px; color: var(--cg-ink-mute); }
 
+/* Square. Expressed as padding rather than aspect-ratio because a collapsed
+ * box is the failure mode if a browser does not know the property, and the
+ * guests here arrive through in-app browsers of unknown vintage. The canvas is
+ * positioned into the padding box, which is where the square actually is. */
 .cg-map {
   position: relative;
   margin-top: 26px;
   width: 100%;
-  height: 250px;
+  height: 0;
+  padding-bottom: 100%;
   overflow: hidden;
   background: var(--cg-card);
 }
-.cg-map-canvas { width: 100%; height: 100%; }
+.cg-map-canvas { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
 .cg-map iframe { width: 100%; height: 100%; border: 0; display: block; }
 
 /* The map itself is fixed, so the box is a link to the real thing. It stops

@@ -171,6 +171,10 @@
     '_assets/media/f65e9229e7ee7c6e87fe10a08eb74ba7.jpg'
   ];
 
+  // The cover's own <title>/og:title, so the share sheet and the preview card
+  // the recipient sees say the same thing.
+  var SHARE_TITLE = '근상/수민 청첩장';
+
   var FOOTER = {
     love: 'With love',
     names: '근상 & 수민',
@@ -931,21 +935,58 @@
     return s.section;
   }
 
+  // What a guest should be handed is the envelope, not the page inside it: the
+  // cover is where the invitation opens and the music starts, and it is the
+  // page that carries the invitation's own title and preview image. Resolved
+  // through an <a> so it goes through the document's <base>, the same way the
+  // footer's "Return to the Invitation" link does.
+  function shareUrl() {
+    var a = document.createElement('a');
+    a.href = './';
+    return a.href;
+  }
+
   function buildShare() {
     var wrap = el('div', 'cg-share');
     var inner = el('div', 'cg-in');
-    var btn = el('button', 'cg-share-btn', '공유하기 (링크 복사)');
+    // Name what the button can actually do. A desktop browser with no share
+    // sheet can only copy, and promising a share it cannot perform is worse
+    // than saying so.
+    var btn = el('button', 'cg-share-btn', navigator.share ? '공유하기' : '공유하기 (링크 복사)');
     btn.type = 'button';
-    btn.addEventListener('click', function () {
-      copyText(
-        location.href,
-        function () { flash(btn, '링크가 복사되었습니다'); },
-        function () { flash(btn, '복사 실패 — 주소창을 길게 눌러 복사해 주세요'); }
-      );
-    });
+    btn.addEventListener('click', function () { share(btn); });
     inner.appendChild(btn);
     wrap.appendChild(inner);
     return wrap;
+  }
+
+  function share(btn) {
+    var copy = function () {
+      copyText(
+        shareUrl(),
+        function () { flash(btn, '링크가 복사되었습니다'); },
+        function () { flash(btn, '복사 실패 — 주소창을 길게 눌러 복사해 주세요'); }
+      );
+    };
+    if (!navigator.share) { copy(); return; }
+
+    var sheet;
+    // title and url only, no `text`: some share targets take the text and drop
+    // the link, and the link is the whole point
+    try {
+      sheet = navigator.share({ title: SHARE_TITLE, url: shareUrl() });
+    } catch (e) {
+      copy();
+      return;
+    }
+    if (!sheet || !sheet.then) { copy(); return; }
+    sheet['catch'](function (err) {
+      // Dismissing the sheet is a decision, not a failure. Copying behind the
+      // guest's back and announcing it would be answering something they just
+      // said no to.
+      if (err && err.name === 'AbortError') return;
+      copy();
+    });
   }
 
   function buildFooter() {
