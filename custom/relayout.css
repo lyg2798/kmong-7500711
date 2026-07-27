@@ -323,23 +323,61 @@
 .cg-doc .cg-hall { margin-top: 10px; font-size: 16px; font-weight: 700; color: var(--cg-ink-soft); }
 .cg-doc .cg-addr { margin-top: 10px; font-size: 13.5px; color: var(--cg-ink-mute); }
 
-.cg-map { margin-top: 26px; width: 100%; height: 250px; overflow: hidden; background: var(--cg-card); }
+.cg-map {
+  position: relative;
+  margin-top: 26px;
+  width: 100%;
+  height: 250px;
+  overflow: hidden;
+  background: var(--cg-card);
+}
+.cg-map-canvas { width: 100%; height: 100%; }
 .cg-map iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+/* The map itself is fixed, so the box is a link to the real thing. It stops
+ * short of the bottom strip, where Kakao's own logo and copyright link sit and
+ * have to stay reachable. */
+.cg-map-tap { position: absolute; top: 0; right: 0; bottom: 24px; left: 0; display: block; }
+
+/* The venue's name over the marker. Its height is fixed because the overlay is
+ * anchored in multiples of it -- see the yAnchor note in relayout.js. */
+.cg-map-pin {
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid var(--cg-line);
+  border-radius: 13px;
+  background: rgba(255, 250, 244, 0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+  font-family: cgKor, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 24px;
+  color: var(--cg-ink);
+  white-space: nowrap;
+}
 
 .cg-ways { margin-top: 34px; text-align: left; display: flex; flex-direction: column; gap: 24px; }
 .cg-doc .cg-way-label { font-size: 15px; font-weight: 700; color: var(--cg-ink); }
 .cg-way-body { margin-top: 8px; font-size: 13.5px; line-height: 1.95; color: var(--cg-ink-soft); word-break: keep-all; }
 
-.cg-maplinks { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cg-maplinks { margin-top: 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .cg-maplink {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 48px;
+  padding: 0 4px;
+  border: 0;                 /* 티맵 is a <button>: it opens an app, not a URL */
+  border-radius: 0;
   background: var(--cg-card);
   color: var(--cg-ink-soft);
-  font-size: 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  white-space: nowrap;
   text-decoration: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .cg-sec--alt .cg-maplink,
 .cg-sec--alt .cg-acc,
