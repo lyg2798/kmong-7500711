@@ -365,26 +365,46 @@
 .cg-doc .cg-way-label { font-size: 15px; font-weight: 700; color: var(--cg-ink); }
 .cg-way-body { margin-top: 8px; font-size: 13.5px; line-height: 1.95; color: var(--cg-ink-soft); word-break: keep-all; }
 
-.cg-maplinks { margin-top: 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* One card of three cells rather than three loose tiles: the row is a single
+ * "where to next" control, so it is drawn as one rounded surface with a rule
+ * between the cells. The card carries the fill; the cells are transparent. */
+.cg-maplinks {
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--cg-card);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(120, 105, 56, 0.07);
+}
 .cg-maplink {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 48px;
-  padding: 0 4px;
+  padding: 17px 4px 15px;
   border: 0;                 /* 티맵 is a <button>: it opens an app, not a URL */
   border-radius: 0;
-  background: var(--cg-card);
+  background: transparent;
   color: var(--cg-ink-soft);
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
+  line-height: 1;
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
 }
-.cg-sec--alt .cg-maplink,
+/* the rule is drawn inside the cell so it cannot widen the column, and only
+ * between cells, never at the card's own edges */
+.cg-maplink + .cg-maplink { box-shadow: inset 1px 0 0 var(--cg-line); }
+.cg-maplink-ic { display: block; height: 26px; }
+.cg-maplink-ic svg { display: block; }
+/* margin rather than flex `gap`, which older in-app WebViews do not lay out */
+.cg-maplink-t { margin-top: 9px; }
+
+.cg-sec--alt .cg-maplinks,
 .cg-sec--alt .cg-acc,
 .cg-sec--alt .cg-card { background: var(--cg-card-alt); }
 
