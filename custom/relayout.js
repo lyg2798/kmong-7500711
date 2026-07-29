@@ -169,20 +169,29 @@
     ]
   };
 
+  // The client's studio originals, web-sized (see _assets/gallery-photos/ for
+  // sources): NN.jpg is the display image (long edge 2400px, q85), NNt.jpg the
+  // strip thumbnail (short edge 480px, q80). Gallery order = file number.
   var PHOTOS = [
-    '_assets/media/794702011abaac93d16e078df7404603.jpg',
-    '_assets/media/354b0b6806f4b317f1a080c16001af61.jpg',
-    '_assets/media/a13654e94f8e82561aa9bbdcb0782828.jpg',
-    '_assets/media/7e7996523dbceb212b46502258c613f0.jpg',
-    '_assets/media/a82bce9d9189aca3d57da0f1730fc0d0.jpg',
-    '_assets/media/bb4642226dc6b83764e2bc5fa91c5952.jpg',
-    '_assets/media/3c6030ff45b87d4572208cd473d92aef.jpg',
-    '_assets/media/b9251585a29695f0620fa4f9ec11af51.jpg',
-    '_assets/media/9bc15f702a6d120770fa3e4dbf6033fa.jpg',
-    '_assets/media/5a560770836c1ab5fe6ffff94e9927ae.jpg',
-    '_assets/media/55a0002efe306324b3ddfc657a2db48c.jpg',
-    '_assets/media/f65e9229e7ee7c6e87fe10a08eb74ba7.jpg'
+    '_assets/gallery/01.jpg',
+    '_assets/gallery/02.jpg',
+    '_assets/gallery/03.jpg',
+    '_assets/gallery/04.jpg',
+    '_assets/gallery/05.jpg',
+    '_assets/gallery/06.jpg',
+    '_assets/gallery/07.jpg',
+    '_assets/gallery/08.jpg',
+    '_assets/gallery/09.jpg',
+    '_assets/gallery/10.jpg',
+    '_assets/gallery/11.jpg',
+    '_assets/gallery/12.jpg',
+    '_assets/gallery/13.jpg',
+    '_assets/gallery/14.jpg',
+    '_assets/gallery/15.jpg',
+    '_assets/gallery/16.jpg',
+    '_assets/gallery/17.jpg'
   ];
+  function thumbOf(src) { return src.replace(/\.jpg$/, 't.jpg'); }
 
   // The cover's own <title>/og:title, so the share sheet and the preview card
   // the recipient sees say the same thing.
@@ -452,7 +461,7 @@
       var t = el('button', 'cg-thumb');
       t.type = 'button';
       var im = document.createElement('img');
-      im.src = PHOTOS[i];
+      im.src = thumbOf(PHOTOS[i]);
       im.alt = '';
       im.loading = 'lazy';
       im.decoding = 'async';
