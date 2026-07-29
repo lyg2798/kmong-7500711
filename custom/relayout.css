@@ -431,6 +431,7 @@
 }
 .cg-doc .cg-card-title { font-size: 19px; font-weight: 700; }
 .cg-card-body { margin-top: 20px; font-size: 13.5px; line-height: 2.1; color: var(--cg-ink-soft); word-break: keep-all; }
+.cg-phrase { display: inline-block; }
 
 .cg-dots { margin-top: 20px; display: flex; justify-content: center; gap: 8px; }
 .cg-dot { width: 7px; height: 7px; border-radius: 50%; border: 0; padding: 0; background: var(--cg-line); cursor: pointer; }

@@ -138,11 +138,19 @@
   var INFO_CARDS = [
     {
       title: '식사 안내',
-      lines: ['코스요리가 좌석에 제공되는 동시예식으로 진행됩니다.', '모바일 청첩장을 통해 참석여부를 꼭 응답해주세요 !']
+      lines: [
+        '코스요리가 좌석에 제공되는',
+        '동시예식으로 진행됩니다.',
+        ['모바일 청첩장을 통해', '참석여부를 꼭 응답해주세요 !']
+      ]
     },
     {
       title: '답례품 안내',
-      lines: ['식사를 못하고 가시는 분들에게는 소정의 답례품이 준비되어있습니다.', '접수처에 꼭 알려주세요!']
+      lines: [
+        '식사를 못하고 가시는 분들에게는',
+        '소정의 답례품이 준비되어있습니다.',
+        '접수처에 꼭 알려주세요 !'
+      ]
     }
   ];
 
@@ -235,8 +243,22 @@
     return n;
   }
 
+  // A string renders as one <p>. An array renders as one <p> of inline-block
+  // phrase spans: on screens wide enough it reads as a single line, and where
+  // it cannot fit it folds at the phrase boundary instead of mid-sentence.
   function lines(parent, arr, cls) {
-    for (var i = 0; i < arr.length; i++) parent.appendChild(el('p', cls || null, arr[i]));
+    for (var i = 0; i < arr.length; i++) {
+      if (Array.isArray(arr[i])) {
+        var p = el('p', cls || null);
+        for (var j = 0; j < arr[i].length; j++) {
+          if (j) p.appendChild(document.createTextNode(' '));
+          p.appendChild(el('span', 'cg-phrase', arr[i][j]));
+        }
+        parent.appendChild(p);
+      } else {
+        parent.appendChild(el('p', cls || null, arr[i]));
+      }
+    }
     return parent;
   }
 
