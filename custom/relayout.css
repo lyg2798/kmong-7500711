@@ -569,7 +569,10 @@
 }
 .cg-foot > * { position: relative; }
 .cg-doc .cg-foot-love { font-family: cgSerif, serif; font-size: 12px; letter-spacing: 0.28em; text-transform: uppercase; opacity: 0.9; }
-.cg-doc .cg-foot-names { margin-top: 22px; font-family: cgSerif, serif; font-size: 26px; letter-spacing: 0.04em; }
+/* cgSerif is Latin-only: the ampersand keeps the serif, and the Korean names
+ * fall through to cgKor instead of whatever serif the phone ships (guests saw
+ * a system Myungjo here and read it as a broken font). */
+.cg-doc .cg-foot-names { margin-top: 22px; font-family: cgSerif, cgKor, sans-serif; font-size: 26px; letter-spacing: 0.04em; }
 .cg-foot-link {
   display: inline-block;
   margin-top: 26px;
