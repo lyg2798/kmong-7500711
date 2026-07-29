@@ -68,7 +68,7 @@
   var DATE_LINE = '2026년 10월 11일 일요일 오후 1시';
   var WEDDING = { year: 2026, month: 10, day: 11, label: 'Oct.' };
 
-  var VENUE = 'JW메리어트 동대문스퀘어';
+  var VENUE = 'JW메리어트 동대문스퀘어 서울';
   var HALL = '그랜드볼룸';
   var ADDRESS = '서울 종로구 청계천로 279';
   var MAP_QUERY = 'JW 메리어트 동대문 스퀘어 서울';
@@ -204,6 +204,10 @@
   // The cover's own <title>/og:title, so the share sheet and the preview card
   // the recipient sees say the same thing.
   var SHARE_TITLE = '근상/수민 청첩장';
+  // The short link the couple actually hands out (301s to the cover). Handed
+  // to the share sheet and the copy fallback verbatim so what a guest passes
+  // on is the same address they received.
+  var SHARE_URL = 'https://tinyurl.com/geunsang-sumin';
 
   var FOOTER = {
     love: 'With love',
@@ -980,14 +984,10 @@
   }
 
   // What a guest should be handed is the envelope, not the page inside it: the
-  // cover is where the invitation opens and the music starts, and it is the
-  // page that carries the invitation's own title and preview image. Resolved
-  // through an <a> so it goes through the document's <base>, the same way the
-  // footer's "Return to the Invitation" link does.
+  // short link opens on the cover, where the invitation opens and the music
+  // starts, and Kakao unfurls it against the cover's own title and image.
   function shareUrl() {
-    var a = document.createElement('a');
-    a.href = './';
-    return a.href;
+    return SHARE_URL;
   }
 
   function buildShare() {

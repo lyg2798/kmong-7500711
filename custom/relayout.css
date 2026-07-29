@@ -571,8 +571,13 @@
 .cg-doc .cg-foot-love { font-family: cgSerif, serif; font-size: 12px; letter-spacing: 0.28em; text-transform: uppercase; opacity: 0.9; }
 /* cgSerif is Latin-only: the ampersand keeps the serif, and the Korean names
  * fall through to cgKor instead of whatever serif the phone ships (guests saw
- * a system Myungjo here and read it as a broken font). */
-.cg-doc .cg-foot-names { margin-top: 22px; font-family: cgSerif, cgKor, sans-serif; font-size: 26px; letter-spacing: 0.04em; }
+ * a system Myungjo here and read it as a broken font).
+ * 3.18vw is the measured size of the cover envelope's "이근상 & 김수민"
+ * (12.39px at a 390px viewport, and the envelope scales with the width), so
+ * the two lines read as the same size on a phone. Capped where the envelope
+ * stops being the reference (tablet/desktop). */
+.cg-doc .cg-foot-names { margin-top: 22px; font-family: cgSerif, cgKor, sans-serif; font-size: 3.18vw; letter-spacing: 0.04em; }
+@media (min-width: 560px) { .cg-doc .cg-foot-names { font-size: 17.8px; } }
 .cg-foot-link {
   display: inline-block;
   margin-top: 26px;

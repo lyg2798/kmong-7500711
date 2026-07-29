@@ -22,16 +22,18 @@
   var stdPct = null;        // {x,y} of the record centre within its canvas
   var stdCanvas = null;     // the section canvas the line lives in
 
-  // Taken from the client's own Canva page, which now shows this exact line
-  // where the record used to be: font 3f1d60…woff, colour rgb(120,105,56),
-  // ~77px with 4px tracking, on two tight lines.
+  // Matched against the client's own Canva page (re-measured 2026-07-29, same
+  // 3f1d60…woff): colour rgb(120,105,56), effective 23.52px / 1.22px tracking
+  // at a 390px viewport, and the two lines advance by exactly one em -- the
+  // old 0.72 line-height stacked them so tight the swashes collided, which is
+  // what read as "broken" on a phone.
   var style = document.createElement('style');
   style.textContent =
     "@font-face{font-family:cgStd;src:url('custom/savethedate.woff') format('woff');font-display:swap}" +
     '[' + MARK + ']{position:absolute;transform:translate(-50%,-50%);z-index:6;text-align:center;' +
       "font-family:cgStd,'Snell Roundhand','Apple Chancery',cursive;color:rgb(120,105,56);" +
-      'line-height:0.72;letter-spacing:0.18vw;pointer-events:none;white-space:nowrap}' +
-    '[' + MARK + '] span{display:block;font-size:5.8vw}';
+      'line-height:1;letter-spacing:0.31vw;pointer-events:none;white-space:nowrap}' +
+    '[' + MARK + '] span{display:block;font-size:6.03vw}';
   (document.head || document.documentElement).appendChild(style);
 
   function findDisc() {
@@ -107,18 +109,15 @@
         var dr = disc.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
         if (cr.width > 0) {
           stdCanvas = canvas;
-          // the record's centre, nudged up/left to where the client's own page
-          // puts the "Save the Date" (matched against a screenshot of it).
-          // The vertical nudge was tuned to 1.30% of this canvas's height back
-          // when invitation.js grew the canvas to fit the greeting it swapped
-          // in. relayout.js replaced that section, so the canvas is ~128px
-          // shorter (at 390 wide) and the same percentage would drop the line
-          // 1.7px. 1.470% of the canvas as it stands now is the same offset in
-          // pixels -- within 0.15px at 320, 390 and 430 -- so the line stays
-          // exactly where it was placed by hand.
+          // the record's centre, nudged to where the client's own page puts
+          // the "Save the Date". Re-measured 2026-07-29 against the text
+          // element the client has since added to the original: its centre
+          // sits at 60.77% of the width at 320, 390 and 430, and the record
+          // centre at 61.491%, so -0.721 across; -0.598 up lands the block
+          // within 1px of the original's at all three widths.
           stdPct = {
-            x: +((((dr.left + dr.width / 2) - cr.left) / cr.width * 100) - 1.4).toFixed(3),
-            y: +((((dr.top + dr.height / 2) - cr.top) / cr.height * 100) - 1.470).toFixed(3)
+            x: +((((dr.left + dr.width / 2) - cr.left) / cr.width * 100) - 0.721).toFixed(3),
+            y: +((((dr.top + dr.height / 2) - cr.top) / cr.height * 100) - 0.598).toFixed(3)
           };
         }
       }
